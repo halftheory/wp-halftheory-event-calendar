@@ -274,11 +274,11 @@ class Event_Calendar {
 					foreach ($posts as $post) {
 						$date_start = get_post_meta($post->ID, 'event_begin', true);
 						if (!empty($date_start)) {
-							$date_start = date('Y-m-d H:i', strtotime($date_start));
+							$date_start = date('d-m-Y H:i', strtotime($date_start));
 						}
 						$date_end = get_post_meta($post->ID, 'event_end', true);
 						if (!empty($date_end)) {
-							$date_end = date('Y-m-d H:i', strtotime($date_end));
+							$date_end = date('d-m-Y H:i', strtotime($date_end));
 						}
 						$postmeta = array(
 							'date_start' => $date_start,
