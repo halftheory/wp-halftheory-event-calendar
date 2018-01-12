@@ -1,0 +1,13 @@
+.eventcalendar-event:before, .eventcalendar-event:after { display: table; content: " "; }
+
+.eventcalendar-event:after { clear: both; }
+
+.eventcalendar-event .eventcalendar-fields { width: 50%; float: left; }
+
+.eventcalendar-event .eventcalendar-fields > p > label { display: table-cell; width: 5em; }
+
+.eventcalendar-event .eventcalendar-fields > p > label[for="eventcalendar_geo_address"] { vertical-align: top; }
+
+.eventcalendar-event .eventcalendar-fields > p > span { display: table-cell; }
+
+.eventcalendar-event .eventcalendar-map { position: absolute; left: -100%; overflow: none; clear: both; height: 15em; width: 100%; }

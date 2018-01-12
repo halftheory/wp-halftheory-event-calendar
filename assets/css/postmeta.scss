@@ -1,0 +1,44 @@
+@charset "UTF-8";
+
+$prefix: 'eventcalendar';
+
+@mixin clearfix {
+	&:before,
+	&:after {
+	  display: table;
+	  content: " ";
+	}
+	&:after {
+	  clear: both;
+	}
+	@content;
+}
+
+.#{$prefix} {
+	display: none;
+	@include clearfix;
+	.#{$prefix}-fields {
+		width: 50%;
+		float: left;
+		label {
+			display: inline-block;
+			width: 10em;
+			&[for="#{$prefix}_geo_address"] {
+				vertical-align: top;
+			}
+		}
+		textarea {
+			height: 5em;
+		}
+	}
+	##{$prefix}_geo_search {
+		width: 80%;
+	}
+	##{$prefix}_geo_search_result a {
+		cursor: pointer;
+	}
+}
+
+.wp-admin .#{$prefix} {
+	display: block;
+}

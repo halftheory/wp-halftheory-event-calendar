@@ -1,0 +1,19 @@
+.eventcalendar { display: none; }
+
+.eventcalendar:before, .eventcalendar:after { display: table; content: " "; }
+
+.eventcalendar:after { clear: both; }
+
+.eventcalendar .eventcalendar-fields { width: 50%; float: left; }
+
+.eventcalendar .eventcalendar-fields label { display: inline-block; width: 10em; }
+
+.eventcalendar .eventcalendar-fields label[for="eventcalendar_geo_address"] { vertical-align: top; }
+
+.eventcalendar .eventcalendar-fields textarea { height: 5em; }
+
+.eventcalendar #eventcalendar_geo_search { width: 80%; }
+
+.eventcalendar #eventcalendar_geo_search_result a { cursor: pointer; }
+
+.wp-admin .eventcalendar { display: block; }

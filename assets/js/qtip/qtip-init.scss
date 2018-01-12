@@ -1,0 +1,42 @@
+@charset "UTF-8";
+@import '../../css/_style-master.scss';
+@import '../../css/_vars.scss';
+
+#qtip-overlay.blurs {
+	cursor: default;
+}
+.#{$prefix}-popup {
+	min-width: 50%;
+	max-width: $container-max-width;
+	width: auto;
+	height: auto;
+	@include rem(border-radius, 0.5);
+	background-color: $body-background;
+	background-image: url("../../images/ajax-loader.gif");
+	background-repeat: no-repeat;
+	@include rem(background-size, 1.5);
+	background-position: center center;
+
+	.qtip-content {
+		@include rem(padding, 1);
+		> iframe {
+			width: 100%;
+			@include rem(min-height, 3);
+			//height: 100%;
+			@include rem(border-radius, 0.5);
+			border: 0;
+			overflow: auto;
+		}
+	}
+	.qtip-close {
+		color: $mid-blue-text;
+		text-decoration: none;
+		background: $light-blue-background;
+		border: 1px solid $mid-blue-background;
+		@include hover(&) {
+			color: $mid-blue-text;
+			text-decoration: none;
+			background: $white-background;
+		}
+	}
+}

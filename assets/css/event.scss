@@ -1,0 +1,43 @@
+@charset "UTF-8";
+
+$prefix: 'eventcalendar';
+
+@mixin clearfix {
+	&:before,
+	&:after {
+	  display: table;
+	  content: " ";
+	}
+	&:after {
+	  clear: both;
+	}
+	@content;
+}
+
+.#{$prefix}-event {
+	@include clearfix;
+	.#{$prefix}-fields {
+		width: 50%;
+		float: left;
+		> p {
+			> label {
+				display: table-cell;
+				width: 5em;
+				&[for="#{$prefix}_geo_address"] {
+					vertical-align: top;
+				}
+			}
+			> span {
+				display: table-cell;
+			}
+		}
+	}
+	.#{$prefix}-map {
+		position: absolute; // display: none stops js loading
+		left: -100%;
+		overflow: none;
+		clear: both;
+		height: 15em;
+		width: 100%;
+	}
+}
