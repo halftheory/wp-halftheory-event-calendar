@@ -9,7 +9,7 @@ Features:
 - Supports Google Maps (a Server API Key must be obtained from Google's Webmaster Tools).
 - Multisite: Ability to include events across all sites.
 - Fully themable via CSS selectors.
-- Bppress compatible.
+- Bbpress compatible.
 
 # Shortcode examples
 
@@ -38,11 +38,11 @@ The following filters are available for plugin/theme customization:
 # Credits
 
 Included scripts:
-https://fullcalendar.io
-http://qtip2.com
-https://xdsoft.net/jqplugins/datetimepicker/
+- https://fullcalendar.io
+- http://qtip2.com
+- https://xdsoft.net/jqplugins/datetimepicker/
 
 Some code is adapted from the following:
-https://wordpress.org/plugins/wp-fullcalendar/
-https://wordpress.org/plugins/events-manager/
-https://wordpress.org/plugins/event-post/
+- https://wordpress.org/plugins/wp-fullcalendar/
+- https://wordpress.org/plugins/events-manager/
+- https://wordpress.org/plugins/event-post/
