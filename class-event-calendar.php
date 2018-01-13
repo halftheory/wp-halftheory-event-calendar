@@ -1000,10 +1000,10 @@ class Event_Calendar {
 	private function get_option($key = '', $default = array()) {
 		if (!isset($this->option)) {
 			if (is_multisite()) {
-				$option = get_site_option($this->prefix, $default);
+				$option = get_site_option($this->prefix, array());
 			}
 			else {
-				$option = get_option($this->prefix, $default);
+				$option = get_option($this->prefix, array());
 			}
 			$this->option = $option;
 		}
