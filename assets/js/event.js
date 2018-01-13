@@ -4,7 +4,10 @@ if (typeof event === 'object') {
 
 	eventcalendar_initialize = function() {
 		if (typeof google.maps.Map === 'function') {
-
+			// chrome needs this
+			if (typeof event === 'undefined' && typeof window['event'] !== 'undefined') {
+				var event = window['event'];
+			}
 			// frontend toggle
 		    $('.'+event.prefix+'-map-toggle').click(function(e) {
 		    	e.preventDefault();
