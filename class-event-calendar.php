@@ -535,19 +535,13 @@ class Event_Calendar {
 
 	public function shortcode($atts = array(), $content = '', $shortcode = '') {
  		$str = '';
+		if (!is_main_query()) {
+			return $str;
+		}
 		if (!in_the_loop()) {
 			return $str;
 		}
 		if (!is_singular()) {
-			return $str;
-		}
-		if (is_404()) {
-			return $str;
-		}
-		if (is_search()) {
-			return $str;
-		}
-		if (!is_main_query()) {
 			return $str;
 		}
 		// $atts - vars that determine list of events (options)
@@ -765,7 +759,7 @@ class Event_Calendar {
 
 	    $post = get_post($post_id);
 
-	    $str = '<h2><a href="'. esc_url(get_permalink($post)).'">'.get_the_title($post).'</a></h2>';
+	    $str = '<h2><a href="'.esc_url(get_permalink($post)).'">'.get_the_title($post).'</a></h2>';
 
 		if (!empty($post->post_excerpt)) {
 			$excerpt = $post->post_excerpt;
