@@ -936,7 +936,7 @@ class Event_Calendar {
 				$args = array(
 					'key' => $this->get_option('googlemaps_api_key', ''),
 					'language' => $this->get_language(),
-					'callback' => $this->prefix.'_initialize',
+					'callback' => $this->prefix.'_init',
 				);
 				$script = add_query_arg($args, set_url_scheme('http://maps.googleapis.com').'/maps/api/js');
 				$js_handle_googlemaps = $this->enqueue_script($this->prefix.'-googlemaps', $script, array($this->prefix.'-event'));

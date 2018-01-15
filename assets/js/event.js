@@ -2,7 +2,7 @@
 /** Note: $() will work as an alias for jQuery() inside of this function */
 if (typeof event === 'object') {
 
-	eventcalendar_initialize = function() {
+	eventcalendar_init = function() {
 		if (typeof google.maps.Map === 'function') {
 			// chrome needs this
 			if (typeof event === 'undefined' && typeof window['event'] !== 'undefined') {
