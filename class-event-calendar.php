@@ -1035,9 +1035,11 @@ class Event_Calendar {
 	}
 	private function get_transient($transient) {
 		if (is_multisite()) {
+			$transient = substr($transient, 0, 167);
 			$value = get_site_transient($transient);
 		}
 		else {
+			$transient = substr($transient, 0, 172);
 			$value = get_transient($transient);
 		}
 		return $value;
@@ -1061,9 +1063,11 @@ class Event_Calendar {
 	}
 	private function delete_transient($transient) {
 		if (is_multisite()) {
+			$transient = substr($transient, 0, 167);
 			$bool = delete_site_transient($transient);
 		}
 		else {
+			$transient = substr($transient, 0, 172);
 			$bool = delete_transient($transient);
 		}
 		return $bool;
