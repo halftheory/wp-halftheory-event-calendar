@@ -461,7 +461,7 @@ class Event_Calendar {
 		$this->enqueue_style($this->prefix.'-datetimepicker', plugins_url('/assets/js/datetimepicker/jquery.datetimepicker.min.css', __FILE__));
 
 		// js + css
-		wp_enqueue_script($this->prefix.'-postmeta', plugins_url('/assets/js/postmeta.js', __FILE__), array($js_handle_datetimepicker), null, true);
+		wp_enqueue_script($this->prefix.'-postmeta', plugins_url('/assets/js/postmeta.min.js', __FILE__), array($js_handle_datetimepicker), null, true);
         wp_localize_script($this->prefix.'-postmeta', 'postmeta', array(
             'prefix' => $this->prefix,
             'ajaxurl' => admin_url().'admin-ajax.php'
@@ -618,7 +618,7 @@ class Event_Calendar {
 		$qtip = apply_filters('eventcalendar_qtip_args', $qtip);
 
 		// plugin js
-		wp_enqueue_script($this->prefix.'-fullcalendar-init', plugins_url('/assets/js/fullcalendar/fullcalendar-init.js', __FILE__), array($js_handle_fullcalendar), null, true);
+		wp_enqueue_script($this->prefix.'-fullcalendar-init', plugins_url('/assets/js/fullcalendar/fullcalendar-init.min.js', __FILE__), array($js_handle_fullcalendar), null, true);
         wp_localize_script($this->prefix.'-fullcalendar-init', 'fullcalendar', array(
             'prefix' => $this->prefix,
             'ajaxurl' => admin_url().'admin-ajax.php',
@@ -928,7 +928,7 @@ class Event_Calendar {
 				$has_map = true;
 
 				// plugin js
-				wp_enqueue_script($this->prefix.'-event', plugins_url('/assets/js/event.js', __FILE__), array('jquery'), null, true);
+				wp_enqueue_script($this->prefix.'-event', plugins_url('/assets/js/event.min.js', __FILE__), array('jquery'), null, true);
 		        wp_localize_script($this->prefix.'-event', 'event', array(
 		            'prefix' => $this->prefix,
 		        ));

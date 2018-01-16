@@ -15,6 +15,7 @@ if (typeof event === 'object') {
 		    	if ($('#'+canvas_id).length) {
 		    		// add the map
 					if ($('#'+canvas_id).children().length === 0) {
+						$('#'+canvas_id).addClass('loading');
 						var location = {lat: parseFloat($(this).data('latitude')), lng: parseFloat($(this).data('longitude'))};
 						var map = new google.maps.Map(document.getElementById(canvas_id),
 							{
@@ -28,7 +29,7 @@ if (typeof event === 'object') {
 							position: location,
 							map: map
 						});
-						$('#'+canvas_id).css('display', 'block').css('position', 'relative').css('left', 0);
+						$('#'+canvas_id).css('display', 'block').css('position', 'relative').css('left', 0).removeClass('loading');
 						return false;
 					}
 					// show or hide
