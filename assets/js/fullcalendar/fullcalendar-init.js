@@ -75,6 +75,14 @@ if (typeof fullcalendar === 'object') {
 				center: 'title',
 				right: 'month,listWeek,listDay'
 			},
+			loading: function(bool) {
+				if (bool) {
+					$(this).addClass('loading');
+				}
+				else {
+					$(this).removeClass('loading');
+				}
+			},
 			navLinks: true,
 			views: {
 				month: { buttonText: 'month', displayEventTime: false },
