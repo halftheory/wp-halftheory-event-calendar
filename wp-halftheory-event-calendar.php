@@ -2,6 +2,7 @@
 /*
 Plugin Name: Event Calendar
 Plugin URI: https://github.com/halftheory/wp-halftheory-event-calendar
+GitHub Plugin URI: https://github.com/halftheory/wp-halftheory-event-calendar
 Description: Event Calendar
 Author: Half/theory
 Author URI: https://github.com/halftheory
