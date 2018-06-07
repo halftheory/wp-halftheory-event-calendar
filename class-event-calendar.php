@@ -818,8 +818,15 @@ class Event_Calendar {
 
         // make a new query
         $url = set_url_scheme('http://nominatim.openstreetmap.org').'/search?q='.urlencode($q).'&format=json&limit=5&accept-language='.$this->get_language();
-        $val = file_get_contents($url);
-        if ($val === false) {
+		// use user_agent when available
+		$user_agent = $this->plugin_title;
+		if (isset($_SERVER["HTTP_USER_AGENT"]) && !empty($_SERVER["HTTP_USER_AGENT"])) {
+			$user_agent = $_SERVER["HTTP_USER_AGENT"];
+		}
+		$options = array('http' => array('user_agent' => $user_agent));
+		$context = stream_context_create($options);
+		$val = @file_get_contents($url, false, $context);
+		if ($val === false || (is_string($val) && trim($val) == '')) {
         	$val = json_encode('There was a problem contacting openstreetmap.org');
         }
         else {
