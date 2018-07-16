@@ -18,19 +18,25 @@ defined('ABSPATH') || exit;
 if (!class_exists('Event_Calendar')) :
 class Event_Calendar {
 
+	public static $prefix;
+
 	public function __construct() {
 		$this->plugin_name = get_called_class();
 		$this->plugin_title = ucwords(str_replace('_', ' ', $this->plugin_name));
 		$this->prefix = sanitize_key($this->plugin_name);
 		$this->prefix = preg_replace("/[^a-z0-9]/", "", $this->prefix);
+		self::$prefix = $this->prefix;
 
 		// admin options
 		if (!$this->is_front_end()) {
-			if (!is_multisite()) {
-				add_action('admin_menu', array($this,'admin_menu'));
+			if (is_multisite()) {
+				add_action('network_admin_menu', array($this,'admin_menu'));
+				if (is_main_site()) {
+					add_action('admin_menu', array($this,'admin_menu'));
+				}
 			}
 			else {
-				add_action('network_admin_menu', array($this,'admin_menu'));
+				add_action('admin_menu', array($this,'admin_menu'));
 			}
 		}
 
@@ -470,14 +476,14 @@ class Event_Calendar {
 		?>
 <div class="<?php echo $this->prefix; ?>">
 	<div class="<?php echo $this->prefix; ?>-fields <?php echo $this->prefix; ?>-date">
-		<h4><?php _e('Event Date'); ?></h4>
+		<h4><?php _e('Date'); ?></h4>
 
 		<p><label for="<?php echo $this->prefix; ?>_date_start"><?php _e('Start:'); ?></label> <input type="text" name="<?php echo $this->prefix; ?>_date_start" id="<?php echo $this->prefix; ?>_date_start" value="<?php echo esc_attr($postmeta['date_start']); ?>" /></p>
 
 		<p><label for="<?php echo $this->prefix; ?>_date_end"><?php _e('End:'); ?></label> <input type="text" name="<?php echo $this->prefix; ?>_date_end" id="<?php echo $this->prefix; ?>_date_end" value="<?php echo esc_attr($postmeta['date_end']); ?>" /></p>
 	</div>
 	<div class="<?php echo $this->prefix; ?>-fields <?php echo $this->prefix; ?>-location">
-		<h4><?php _e('Event Location'); ?></h4>
+		<h4><?php _e('Location'); ?></h4>
 
 		<p><input type="text" name="<?php echo $this->prefix; ?>_geo_search" id="<?php echo $this->prefix; ?>_geo_search" value="" placeholder="Search for GPS coordinates" /> <input id="<?php echo $this->prefix; ?>_geo_search_button" class="button" value="Go" type="button" /></p>
 		<div id="<?php echo $this->prefix; ?>_geo_search_result"></div>
