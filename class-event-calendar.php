@@ -391,25 +391,40 @@ class Event_Calendar {
 
         <div class="postbox">
         	<div class="inside">
-	            <h4>Google Maps Details</h4>
-	            <p><span class="description"><?php _e('These details are available from Google.'); ?></span></p>
+	            <h4><?php _e('Maps'); ?></h4>
 
-	            <p><label for="<?php echo $plugin->prefix; ?>_googlemaps_api_key" style="display: inline-block; width: 20em; max-width: 25%;"><?php _e('Server API Key'); ?></label>
-	            <input type="text" name="<?php echo $plugin->prefix; ?>_googlemaps_api_key" id="<?php echo $plugin->prefix; ?>_googlemaps_api_key" style="width: 50%;" value="<?php echo esc_attr($options['googlemaps_api_key']); ?>" /></p>
+				<?php
+				$maps_providers = array(
+					'openstreetmap' => 'OpenStreetMap',
+					'google' => 'Google',
+				);
+				?>
+	            <p><label for="<?php echo $plugin->prefix; ?>_maps_provider" style="display: inline-block; width: 20em; max-width: 25%;"><?php _e('Maps Provider'); ?></label>
+				<select id="<?php echo $plugin->prefix; ?>_maps_provider" name="<?php echo $plugin->prefix; ?>_maps_provider">
+					<option value=""><?php _e('&mdash;&mdash;'); ?></option>
+					<?php foreach ($maps_providers as $key => $value) : ?>
+						<option value="<?php echo esc_attr($key); ?>"<?php selected($key, $options['maps_provider']); ?>><?php echo esc_html($value); ?></option>
+					<?php endforeach; ?>
+				</select></p>
+
+	            <p><label for="<?php echo $plugin->prefix; ?>_maps_google_api_key" style="display: inline-block; width: 20em; max-width: 25%;"><?php _e('Google API Key'); ?></label>
+	            <input type="text" name="<?php echo $plugin->prefix; ?>_maps_google_api_key" id="<?php echo $plugin->prefix; ?>_maps_google_api_key" style="width: 50%;" value="<?php echo esc_attr($options['maps_google_api_key']); ?>" /><br />
+	            <span class="description small" style="margin-left: 20em;"><?php _e('These details are available from Google.'); ?></span></p>
+
+		        <p><label for="<?php echo $plugin->prefix; ?>_maps_load_startup"><input type="checkbox" id="<?php echo $plugin->prefix; ?>_maps_load_startup" name="<?php echo $plugin->prefix; ?>_maps_load_startup" value="1"<?php checked($options['maps_load_startup'], 1); ?> /> <?php _e('Load maps at startup? Disabling this can reduce the number of API calls.'); ?></label></p>
         	</div>
         </div>
 
         <div class="postbox">
         	<div class="inside">
-	            <h4>Data Import</h4>
-
+	            <h4><?php _e('Data Import'); ?></h4>
 		        <p><label for="<?php echo $plugin->prefix; ?>_eventpost_import"><input type="checkbox" id="<?php echo $plugin->prefix; ?>_eventpost_import" name="<?php echo $plugin->prefix; ?>_eventpost_import" value="1" /> <?php _e('Import existing postmeta data from the Event Post plugin?'); ?></label></p>
 		        <p><label for="<?php echo $plugin->prefix; ?>_eventpost_delete"><input type="checkbox" id="<?php echo $plugin->prefix; ?>_eventpost_delete" name="<?php echo $plugin->prefix; ?>_eventpost_delete" value="1" /> <?php _e('Delete existing postmeta data from the Event Post plugin?'); ?></label></p>
         	</div>
         </div>
 
         <p class="submit">
-            <input type="submit" value="Update" id="publish" class="button button-primary button-large" name="save">
+            <input type="submit" value="<?php _e('Update'); ?>" id="publish" class="button button-primary button-large" name="save">
         </p>
 
         </div><!-- poststuff -->
@@ -861,7 +876,7 @@ class Event_Calendar {
 			return $str;
 		}
 		if (!is_main_query()) {
-			return $str;
+			#return $str;
 		}
 		if (current_filter() == 'the_content' && !in_the_loop()) {
 			return $str;
@@ -937,30 +952,52 @@ class Event_Calendar {
 			}
 
 			// map
-			if (isset($postmeta['geo_latitude']) && isset($postmeta['geo_longitude']) && !empty($postmeta['geo_latitude']) && !empty($postmeta['geo_longitude']) && $this->get_option('googlemaps_api_key', false)) {
+			if (isset($postmeta['geo_latitude']) && isset($postmeta['geo_longitude']) && !empty($postmeta['geo_latitude']) && !empty($postmeta['geo_longitude']) && !empty($this->get_option('maps_provider', false))) {
 				$has_map = true;
+				$maps_provider = $this->get_option('maps_provider', false);
 
 				// plugin js
 				wp_enqueue_script($this->prefix.'-event', plugins_url('/assets/js/event.min.js', __FILE__), array('jquery'), null, true);
-		        wp_localize_script($this->prefix.'-event', 'event', array(
+				$data = array(
 		            'prefix' => $this->prefix,
-		        ));
+		            'maps_provider' => $maps_provider,
+		            'maps_load_startup' => $this->get_option('maps_load_startup', false),
+		        );
+
+				// openstreetmap
+				if ($maps_provider == 'openstreetmap') {
+					$bbox_margin = 0.02;
+					$args = array(
+						'bbox' => urlencode(((float)$postmeta['geo_longitude'] - $bbox_margin).','.((float)$postmeta['geo_latitude'] - $bbox_margin).','.((float)$postmeta['geo_longitude'] + $bbox_margin).','.((float)$postmeta['geo_latitude'] + $bbox_margin)),
+						'layer' => 'mapnik',
+					);
+					$script = add_query_arg($args, set_url_scheme('http://www.openstreetmap.org').'/export/embed.html');
+					$data['openstreetmap_src'] = esc_url($script);
+				}
+
+		        wp_localize_script($this->prefix.'-event', 'eventcalendar', $data);
+
 				// google js
-				$args = array(
-					'key' => $this->get_option('googlemaps_api_key', ''),
-					'language' => $this->get_language(),
-					'callback' => $this->prefix.'_init',
-				);
-				$script = add_query_arg($args, set_url_scheme('http://maps.googleapis.com').'/maps/api/js');
-				$js_handle_googlemaps = $this->enqueue_script($this->prefix.'-googlemaps', $script, array($this->prefix.'-event'));
+				if ($maps_provider == 'google') {
+					$args = array(
+						'key' => $this->get_option('maps_google_api_key', ''),
+						'language' => $this->get_language(),
+						'callback' => $this->prefix.'_init',
+					);
+					$script = add_query_arg($args, set_url_scheme('http://maps.googleapis.com').'/maps/api/js');
+					$js_handle_googlemaps = $this->enqueue_script($this->prefix.'-googlemaps', $script, array($this->prefix.'-event'));
+				}
 
-				$res .= '<p><label for="'.$this->prefix.'-map">'.__('Map:').'</label><span><button class="'.$this->prefix.'-map-toggle" data-latitude="'.$postmeta['geo_latitude'].'" data-longitude="'.$postmeta['geo_longitude'].'" data-id="'.get_the_ID().'">'.__('Toggle Google Map').'</button></span></p>';
+				$res .= '<p><label for="'.$this->prefix.'-map">'.__('Map:').'</label><span><button class="'.$this->prefix.'-map-toggle" data-latitude="'.$postmeta['geo_latitude'].'" data-longitude="'.$postmeta['geo_longitude'].'" data-id="'.get_the_ID().'">'.__('Toggle Map').'</button></span></p>';
 			}
-
 			$res .= '</div>'; // close location
 		}
 		if ($has_map) {
-			$res .= '<div class="'.$this->prefix.'-map" id="'.$this->prefix.'-map-'.get_the_ID().'"></div>';
+			$class = 'map-open';
+			if (empty($this->get_option('maps_load_startup', false))) {
+				$class = 'map-close';
+			}
+			$res .= '<div class="'.$this->prefix.'-map '.$class.'" id="'.$this->prefix.'-map-'.get_the_ID().'" itemprop="geo" itemscope itemtype="'.set_url_scheme('http://schema.org/Map').'"></div>';
 		}
 
 		$res .= '</div>'; // close event
@@ -1092,7 +1129,9 @@ class Event_Calendar {
 			'post_types',
 			'include_post_date',
 			'include_post_modified',
-			'googlemaps_api_key',
+			'maps_provider',
+			'maps_google_api_key',
+			'maps_load_startup',
 		);
     }
     private function get_postmeta_array() {

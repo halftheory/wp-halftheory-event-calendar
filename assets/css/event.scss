@@ -33,11 +33,19 @@ $prefix: 'eventcalendar';
 		}
 	}
 	.#{$prefix}-map {
-		position: absolute; // display: none stops js loading
-		left: -100%;
-		overflow: none;
+		overflow: hidden;
 		clear: both;
 		height: 15em;
 		width: 100%;
+		> iframe {
+			height: 15em;
+			width: 100%;
+		}
+		&.map-open {
+			height: 15em;
+		}
+		&.map-close {
+			height: 0;
+		}
 	}
 }

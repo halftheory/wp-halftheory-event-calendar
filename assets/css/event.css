@@ -10,4 +10,10 @@
 
 .eventcalendar-event .eventcalendar-fields > p > span { display: table-cell; }
 
-.eventcalendar-event .eventcalendar-map { position: absolute; left: -100%; overflow: none; clear: both; height: 15em; width: 100%; }
+.eventcalendar-event .eventcalendar-map { overflow: hidden; clear: both; height: 15em; width: 100%; }
+
+.eventcalendar-event .eventcalendar-map > iframe { height: 15em; width: 100%; }
+
+.eventcalendar-event .eventcalendar-map.map-open { height: 15em; }
+
+.eventcalendar-event .eventcalendar-map.map-close { height: 0; }
