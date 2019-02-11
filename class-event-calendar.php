@@ -10,6 +10,7 @@ eventcalendar_admin_menu_parent
 eventcalendar_post_types
 eventcalendar_the_content
 eventcalendar_toggle
+eventcalendar_post_has_event_data_required
 */
 
 // Exit if accessed directly.
@@ -20,12 +21,16 @@ class Event_Calendar {
 
 	public static $prefix;
 
-	public function __construct() {
+	public function __construct($load_actions = true) {
 		$this->plugin_name = get_called_class();
 		$this->plugin_title = ucwords(str_replace('_', ' ', $this->plugin_name));
 		$this->prefix = sanitize_key($this->plugin_name);
 		$this->prefix = preg_replace("/[^a-z0-9]/", "", $this->prefix);
 		self::$prefix = $this->prefix;
+
+		if (!$load_actions) {
+			return;
+		}
 
 		// admin options
 		if (!$this->is_front_end()) {
@@ -700,17 +705,17 @@ class Event_Calendar {
 	    		}
 	    		elseif ($postmeta) {
 	    			$item['start'] = date('Y-m-d\TH:i:s', strtotime($postmeta['date_start']));
-	    			$no_end = false;
+	    			$has_end = true;
 	    			if (!isset($postmeta['date_end'])) {
-	    				$no_end = true;
+	    				$has_end = false;
 	    			}
 	    			elseif (empty($postmeta['date_end'])) {
-	    				$no_end = true;
+	    				$has_end = false;
 	    			}
 	    			elseif (strtotime($postmeta['date_end']) < strtotime($postmeta['date_start'])) {
-	    				$no_end = true;
+	    				$has_end = false;
 	    			}
-	    			if (!$no_end) {
+	    			if ($has_end) {
 	    				$item['end'] = date('Y-m-d\TH:i:s', strtotime($postmeta['date_end']));
 	    				// find all day events
 	    				if (!preg_match("/[0-9]{2}:[0-9]{2}/i", $postmeta['date_start']) || strpos($postmeta['date_start'], '00:00') !== false) {
@@ -861,7 +866,7 @@ class Event_Calendar {
 
 	public function the_content($str = '') {
 		if (current_filter() == 'the_content' && empty($str)) {
-			return $str;
+			//return $str;
 		}
 		if (!is_singular()) {
 			return $str;
@@ -875,8 +880,8 @@ class Event_Calendar {
 		if (is_home()) {
 			return $str;
 		}
-		if (!is_main_query()) {
-			#return $str;
+		if (!is_main_query() && !wp_doing_ajax()) {
+			return $str;
 		}
 		if (current_filter() == 'the_content' && !in_the_loop()) {
 			return $str;
@@ -898,48 +903,59 @@ class Event_Calendar {
 		}
 
 		// css
-		wp_enqueue_style($this->prefix.'-event', plugins_url('/assets/css/event.css', __FILE__), array(), null);
-
-		$date_format = get_option('date_format', 'j F Y');
-		$time_format = get_option('time_format', 'H:i');
+		self::enqueue_event_scripts('css');
 
 		// start html
-		$res = '<div class="'.$this->prefix.'-event" itemscope itemtype="'.set_url_scheme('http://schema.org/Event').'">
-		<div class="'.$this->prefix.'-fields '.$this->prefix.'-date">
-		<h4 class="'.$this->prefix.'-event-title">'.__('Event Date').'</h4>';
+		$res = '<div class="'.$this->prefix.'-event" itemscope itemtype="'.set_url_scheme('http://schema.org/Event').'">';
 
 		// date_start
-		$res .= '<p><label for="'.$this->prefix.'_date_start">'.__('Start:').'</label><span class="'.$this->prefix.'_date_start" itemprop="startDate" content="'.date('Y-m-d\TH:i', strtotime($postmeta['date_start'])).'">';
-		if (strpos($postmeta['date_start'], ' 00:00') === false) {
-			$res .= date($date_format.' - '.$time_format, strtotime($postmeta['date_start']));
+		$has_start = true;
+		if (!isset($postmeta['date_start'])) {
+			$has_start = false;
 		}
-		else {
-			$res .= date($date_format, strtotime($postmeta['date_start']));
+		elseif (empty($postmeta['date_start'])) {
+			$has_start = false;
 		}
-		$res .= '</span></p>';
-
 		// date_end
-		$no_end = false;
+		$has_end = true;
 		if (!isset($postmeta['date_end'])) {
-			$no_end = true;
+			$has_end = false;
 		}
 		elseif (empty($postmeta['date_end'])) {
-			$no_end = true;
+			$has_end = false;
 		}
 		elseif (strtotime($postmeta['date_end']) < strtotime($postmeta['date_start'])) {
-			$no_end = true;
+			$has_end = false;
 		}
-		if (!$no_end) {
-			$res .= '<p><label for="'.$this->prefix.'_date_end">'.__('End:').'</label><span class="'.$this->prefix.'_date_end" itemprop="endDate" content="'.date('Y-m-d\TH:i', strtotime($postmeta['date_end'])).'">';
-			if (strpos($postmeta['date_end'], ' 00:00') === false) {
-				$res .= date($date_format.' - '.$time_format, strtotime($postmeta['date_end']));
+
+		if ($has_start || $has_end) {
+			$date_format = get_option('date_format', 'j F Y');
+			$time_format = get_option('time_format', 'H:i');
+
+			$res .= '<div class="'.$this->prefix.'-fields '.$this->prefix.'-date">
+			<h4 class="'.$this->prefix.'-event-title">'.__('Event Date').'</h4>';
+			if ($has_start) {
+				$res .= '<p><label for="'.$this->prefix.'_date_start">'.__('Start:').'</label><span class="'.$this->prefix.'_date_start" itemprop="startDate" content="'.date('Y-m-d\TH:i', strtotime($postmeta['date_start'])).'">';
+				if (strpos($postmeta['date_start'], ' 00:00') === false) {
+					$res .= date($date_format.' - '.$time_format, strtotime($postmeta['date_start']));
+				}
+				else {
+					$res .= date($date_format, strtotime($postmeta['date_start']));
+				}
+				$res .= '</span></p>';
 			}
-			else {
-				$res .= date($date_format, strtotime($postmeta['date_end']));
+			if ($has_end) {
+				$res .= '<p><label for="'.$this->prefix.'_date_end">'.__('End:').'</label><span class="'.$this->prefix.'_date_end" itemprop="endDate" content="'.date('Y-m-d\TH:i', strtotime($postmeta['date_end'])).'">';
+				if (strpos($postmeta['date_end'], ' 00:00') === false) {
+					$res .= date($date_format.' - '.$time_format, strtotime($postmeta['date_end']));
+				}
+				else {
+					$res .= date($date_format, strtotime($postmeta['date_end']));
+				}
+				$res .= '</span></p>';
 			}
-			$res .= '</span></p>';
+			$res .= '</div>'; // close date
 		}
-		$res .= '</div>'; // close date
 
 		$has_map = false;
 		if ($this->post_has_event_location($postmeta)) {
@@ -954,39 +970,9 @@ class Event_Calendar {
 			// map
 			if (isset($postmeta['geo_latitude']) && isset($postmeta['geo_longitude']) && !empty($postmeta['geo_latitude']) && !empty($postmeta['geo_longitude']) && !empty($this->get_option('maps_provider', false))) {
 				$has_map = true;
-				$maps_provider = $this->get_option('maps_provider', false);
 
-				// plugin js
-				wp_enqueue_script($this->prefix.'-event', plugins_url('/assets/js/event.min.js', __FILE__), array('jquery'), null, true);
-				$data = array(
-		            'prefix' => $this->prefix,
-		            'maps_provider' => $maps_provider,
-		            'maps_load_startup' => $this->get_option('maps_load_startup', false),
-		        );
-
-				// openstreetmap
-				if ($maps_provider == 'openstreetmap') {
-					$bbox_margin = 0.02;
-					$args = array(
-						'bbox' => urlencode(((float)$postmeta['geo_longitude'] - $bbox_margin).','.((float)$postmeta['geo_latitude'] - $bbox_margin).','.((float)$postmeta['geo_longitude'] + $bbox_margin).','.((float)$postmeta['geo_latitude'] + $bbox_margin)),
-						'layer' => 'mapnik',
-					);
-					$script = add_query_arg($args, set_url_scheme('http://www.openstreetmap.org').'/export/embed.html');
-					$data['openstreetmap_src'] = esc_url($script);
-				}
-
-		        wp_localize_script($this->prefix.'-event', 'eventcalendar', $data);
-
-				// google js
-				if ($maps_provider == 'google') {
-					$args = array(
-						'key' => $this->get_option('maps_google_api_key', ''),
-						'language' => $this->get_language(),
-						'callback' => $this->prefix.'_init',
-					);
-					$script = add_query_arg($args, set_url_scheme('http://maps.googleapis.com').'/maps/api/js');
-					$js_handle_googlemaps = $this->enqueue_script($this->prefix.'-googlemaps', $script, array($this->prefix.'-event'));
-				}
+				// js
+				self::enqueue_event_scripts('js');
 
 				$res .= '<p><label for="'.$this->prefix.'-map">'.__('Map:').'</label><span><button class="'.$this->prefix.'-map-toggle" data-latitude="'.$postmeta['geo_latitude'].'" data-longitude="'.$postmeta['geo_longitude'].'" data-id="'.get_the_ID().'">'.__('Toggle Map').'</button></span></p>';
 			}
@@ -1161,6 +1147,7 @@ class Event_Calendar {
 		$postmeta_arr = array(
 			'date_start',
 		);
+        $postmeta_arr = apply_filters('eventcalendar_post_has_event_data_required', $postmeta_arr);
 		foreach ($postmeta_arr as $value) {
 			if (isset($postmeta[$value])) {
 				if (!empty($postmeta[$value])) {
@@ -1254,6 +1241,52 @@ class Event_Calendar {
 		return $handle;
 	}
 
+	public static function enqueue_event_scripts($style_or_script = 'all') {
+		$plugin = new self(false);
+		// css
+		if ($style_or_script == 'all' || $style_or_script == 'css') {
+			if (wp_style_is($plugin->prefix.'-event', 'enqueued') || wp_style_is($plugin->prefix.'-event', 'registered')) {
+				return;
+			}
+			$plugin->enqueue_style($plugin->prefix.'-event', plugins_url('/assets/css/event.css', __FILE__), array(), null);
+		}
+		// js
+		if ($style_or_script == 'all' || $style_or_script == 'js') {
+			if (wp_script_is($plugin->prefix.'-event', 'enqueued') || wp_script_is($plugin->prefix.'-event', 'registered')) {
+				return;
+			}
+			if (empty($plugin->get_option('maps_provider', false))) {
+				return;
+			}
+			$maps_provider = $plugin->get_option('maps_provider', false);
+
+			// plugin js
+			$plugin->enqueue_script($plugin->prefix.'-event', plugins_url('/assets/js/event.min.js', __FILE__), array('jquery'), null, true);
+			$data = array(
+	            'prefix' => $plugin->prefix,
+	            'maps_provider' => $maps_provider,
+	            'maps_load_startup' => $plugin->get_option('maps_load_startup', false),
+	        );
+
+			// openstreetmap
+			if ($maps_provider == 'openstreetmap') {
+				$data['openstreetmap_src'] = esc_url(set_url_scheme('http://www.openstreetmap.org').'/export/embed.html');
+			}
+
+	        wp_localize_script($plugin->prefix.'-event', 'eventcalendar', $data);
+
+			// google js
+			if ($maps_provider == 'google') {
+				$args = array(
+					'key' => $plugin->get_option('maps_google_api_key', ''),
+					'language' => $plugin->get_language(),
+					'callback' => $plugin->prefix.'_init',
+				);
+				$script = add_query_arg($args, set_url_scheme('http://maps.googleapis.com').'/maps/api/js');
+				$js_handle_googlemaps = $plugin->enqueue_script($plugin->prefix.'-googlemaps', $script, array($plugin->prefix.'-event'));
+			}
+		}
+	}
 }
 endif;
 ?>
