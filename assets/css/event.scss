@@ -33,16 +33,17 @@ $prefix: 'eventcalendar';
 		}
 	}
 	.#{$prefix}-map {
+		$map-height: 15em;
 		overflow: hidden;
 		clear: both;
-		height: 15em;
+		height: $map-height;
 		width: 100%;
 		> iframe {
-			height: 15em;
+			height: $map-height;
 			width: 100%;
 		}
 		&.map-open {
-			height: 15em;
+			height: $map-height;
 		}
 		&.map-close {
 			height: 0;
