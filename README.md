@@ -6,7 +6,7 @@ This plugin enables the simple display and population of a monthly/weekly/daily 
 Features:
 - Add calendar/geolocation metadata to any post type.
 - Simply display a calendar using shortcode [event-calendar].
-- Supports Google Maps (a Server API Key must be obtained from Google's Webmaster Tools).
+- Supports OpenStreetMap and Google Maps (a Server API Key must be obtained from Google's Webmaster Tools).
 - Multisite: Ability to include events across all sites.
 - Fully themable via CSS selectors.
 - Bbpress compatible.
@@ -23,17 +23,19 @@ Features:
 
 The following filters are available for plugin/theme customization:
 
+- halftheory_admin_menu_parent
+- eventcalendar_admin_menu_parent
+- eventcalendar_deactivation
+- eventcalendar_uninstall
 - eventcalendar_shortcode
 - eventcalendar_fullcalendar_args
 - eventcalendar_qtip
 - eventcalendar_qtip_args
-- eventcalendar_admin_menu_parent
-- eventcalendar_post_types
+- eventcalendar_posts_args
+- eventcalendar_posts
 - eventcalendar_the_content
 - eventcalendar_toggle
-- eventcalendar_deactivation
-- eventcalendar_uninstall
-- halftheory_admin_menu_parent
+- eventcalendar_post_has_event_data_required
 
 # Credits
 

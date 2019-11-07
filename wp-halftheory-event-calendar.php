@@ -1,30 +1,32 @@
 <?php
 /*
-Plugin Name: Event Calendar
+Plugin Name: Half/theory Event Calendar
 Plugin URI: https://github.com/halftheory/wp-halftheory-event-calendar
 GitHub Plugin URI: https://github.com/halftheory/wp-halftheory-event-calendar
 Description: Event Calendar
 Author: Half/theory
 Author URI: https://github.com/halftheory
-Version: 1.0
-Network: true
+Version: 2.0
+Network: false
 */
 
 /*
 Available filters:
-eventcalendar_deactivation(string $db_prefix)
-eventcalendar_uninstall(string $db_prefix)
+eventcalendar_deactivation(string $db_prefix, class $subclass)
+eventcalendar_uninstall(string $db_prefix, class $subclass)
 */
 
 // Exit if accessed directly.
 defined('ABSPATH') || exit;
 
 if (!class_exists('Event_Calendar_Plugin')) :
-class Event_Calendar_Plugin {
+final class Event_Calendar_Plugin {
 
 	public function __construct() {
 		@include_once(dirname(__FILE__).'/class-event-calendar.php');
-		$this->subclass = new Event_Calendar();
+		if (class_exists('Event_Calendar')) {
+			$this->subclass = new Event_Calendar(plugin_basename(__FILE__), '', true);
+		}
 	}
 
 	public static function init() {
@@ -39,53 +41,21 @@ class Event_Calendar_Plugin {
 
 	public static function deactivation() {
 		$plugin = new self;
-
-		// remove transients
-		global $wpdb;
-		$query_single = "DELETE FROM $wpdb->options WHERE option_name LIKE '_transient_".$plugin->subclass::$prefix."%' OR option_name LIKE '_transient_timeout_".$plugin->subclass::$prefix."%'";
-		if (is_multisite()) {
-			$wpdb->query("DELETE FROM $wpdb->sitemeta WHERE meta_key LIKE '_site_transient_".$plugin->subclass::$prefix."%' OR meta_key LIKE '_site_transient_timeout_".$plugin->subclass::$prefix."%'");
-			$current_blog_id = get_current_blog_id();
-			$sites = get_sites();
-			foreach ($sites as $key => $value) {
-				switch_to_blog($value->blog_id);
-				$wpdb->query($query_single);
-			}
-			switch_to_blog($current_blog_id);
+		if ($plugin->subclass) {
+			$plugin->subclass->delete_transient_uninstall();
+			apply_filters('eventcalendar_deactivation', $plugin->subclass::$prefix, $plugin->subclass);
 		}
-		else {
-			$wpdb->query($query_single);
-		}
-		apply_filters('eventcalendar_deactivation', $plugin->subclass::$prefix);
 		return;
 	}
 
 	public static function uninstall() {
 		$plugin = new self;
-
-		// remove options + postmeta
-		global $wpdb;
-		$query_options = "DELETE FROM $wpdb->options WHERE option_name LIKE '".$plugin->subclass::$prefix."_%'";
-		$query_postmeta = "DELETE FROM $wpdb->postmeta WHERE meta_key LIKE '".$plugin->subclass::$prefix."_%'";
-		if (is_multisite()) {
-			delete_site_option($plugin->subclass::$prefix);
-			$wpdb->query("DELETE FROM $wpdb->sitemeta WHERE meta_key LIKE '".$plugin->subclass::$prefix."_%'");
-			$current_blog_id = get_current_blog_id();
-			$sites = get_sites();
-			foreach ($sites as $key => $value) {
-				switch_to_blog($value->blog_id);
-				delete_option($plugin->subclass::$prefix);
-				$wpdb->query($query_options);
-				$wpdb->query($query_postmeta);
-			}
-			switch_to_blog($current_blog_id);
+		if ($plugin->subclass) {
+			$plugin->subclass->delete_transient_uninstall();
+			$plugin->subclass->delete_postmeta_uninstall();
+			$plugin->subclass->delete_option_uninstall();
+			apply_filters('eventcalendar_uninstall', $plugin->subclass::$prefix, $plugin->subclass);
 		}
-		else {
-			delete_option($plugin->subclass::$prefix);
-			$wpdb->query($query_options);
-			$wpdb->query($query_postmeta);
-		}
-		apply_filters('eventcalendar_uninstall', $plugin->subclass::$prefix);
 		return;
 	}
 

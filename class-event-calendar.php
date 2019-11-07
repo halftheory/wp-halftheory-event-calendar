@@ -5,9 +5,8 @@ eventcalendar_shortcode
 eventcalendar_fullcalendar_args
 eventcalendar_qtip
 eventcalendar_qtip_args
-halftheory_admin_menu_parent
-eventcalendar_admin_menu_parent
-eventcalendar_post_types
+eventcalendar_posts_args
+eventcalendar_posts
 eventcalendar_the_content
 eventcalendar_toggle
 eventcalendar_post_has_event_data_required
@@ -16,37 +15,31 @@ eventcalendar_post_has_event_data_required
 // Exit if accessed directly.
 defined('ABSPATH') || exit;
 
-if (!class_exists('Event_Calendar')) :
-class Event_Calendar {
+if (!class_exists('Halftheory_Helper_Plugin')) {
+	@include_once(dirname(__FILE__).'/class-halftheory-helper-plugin.php');
+}
 
+if (!class_exists('Event_Calendar') && class_exists('Halftheory_Helper_Plugin')) :
+final class Event_Calendar extends Halftheory_Helper_Plugin {
+
+	public static $plugin_basename;
 	public static $prefix;
+	public static $active = false;
+	public static $postmeta_key;
 
-	public function __construct($load_actions = true) {
-		$this->plugin_name = get_called_class();
-		$this->plugin_title = ucwords(str_replace('_', ' ', $this->plugin_name));
-		self::$prefix = sanitize_key($this->plugin_name);
-		self::$prefix = preg_replace("/[^a-z0-9]/", "", self::$prefix);
+	/* setup */
 
-		if (!$load_actions) {
-			return;
-		}
+	public function init($plugin_basename = '', $prefix = '') {
+		parent::init($plugin_basename, $prefix);
+		self::$active = $this->get_option(static::$prefix, 'active', false);
+		self::$postmeta_key = static::$prefix;
+	}
 
-		// admin options
-		if (!$this->is_front_end()) {
-			if (is_multisite()) {
-				add_action('network_admin_menu', array($this,'admin_menu'));
-				if (is_main_site()) {
-					add_action('admin_menu', array($this,'admin_menu'));
-				}
-			}
-			else {
-				add_action('admin_menu', array($this,'admin_menu'));
-			}
-		}
+	protected function setup_actions() {
+		parent::setup_actions();
 
 		// stop if not active
-		$active = $this->get_option('active', false);
-		if (empty($active)) {
+		if (empty(self::$active)) {
 			return;
 		}
 
@@ -56,26 +49,25 @@ class Event_Calendar {
 		}
 		else {
 			// bbpress
-			#add_action('media_buttons', array($this, 'add_meta_boxes_frontend'));
 			add_action('bbp_theme_after_forum_form_content', array($this, 'add_meta_boxes_frontend'));
 			add_action('bbp_theme_after_topic_form_content', array($this, 'add_meta_boxes_frontend'));
 			add_action('bbp_theme_after_reply_form_content', array($this, 'add_meta_boxes_frontend'));
 			// ajax
-        	add_action('wp_ajax_'.self::$prefix.'_fullcalendar', array($this, 'ajax_fullcalendar'));
-        	add_action('wp_ajax_nopriv_'.self::$prefix.'_fullcalendar', array($this, 'ajax_fullcalendar'));
-        	add_action('wp_ajax_'.self::$prefix.'_qtip', array($this, 'ajax_qtip'));
-        	add_action('wp_ajax_nopriv_'.self::$prefix.'_qtip', array($this, 'ajax_qtip'));
+        	add_action('wp_ajax_'.static::$prefix.'_fullcalendar', array($this, 'ajax_fullcalendar'));
+        	add_action('wp_ajax_nopriv_'.static::$prefix.'_fullcalendar', array($this, 'ajax_fullcalendar'));
+        	add_action('wp_ajax_'.static::$prefix.'_qtip', array($this, 'ajax_qtip'));
+        	add_action('wp_ajax_nopriv_'.static::$prefix.'_qtip', array($this, 'ajax_qtip'));
 		}
 		// only editors
 		if (is_user_logged_in() && current_user_can('edit_posts')) {
 			add_action('save_post', array($this,'save_post'), 10, 3);
-        	add_action('wp_ajax_'.self::$prefix.'_geo_search', array($this, 'ajax_geo_search'));
-        	add_action('wp_ajax_nopriv_'.self::$prefix.'_geo_search', array($this, 'ajax_geo_search'));
+        	add_action('wp_ajax_'.static::$prefix.'_geo_search', array($this, 'ajax_geo_search'));
+        	add_action('wp_ajax_nopriv_'.static::$prefix.'_geo_search', array($this, 'ajax_geo_search'));
         }
 
 		// filters
 		$this->shortcode = 'event-calendar';
-		add_shortcode($this->shortcode, array($this, 'shortcode'));
+		add_shortcode($this->shortcode, array($this,'shortcode'));
 		if ($this->is_front_end()) {
 			add_filter('the_content', array($this,'the_content'), 20);
 			add_action('bbp_template_after_single_forum', array($this,'the_content'));
@@ -86,118 +78,27 @@ class Event_Calendar {
 
 	/* functions-common */
 
-	private function make_array($str = '', $sep = ',') {
-		if (function_exists(__FUNCTION__)) {
-			$func = __FUNCTION__;
-			return $func($str, $sep);
-		}
-		if (is_array($str)) {
-			return $str;
-		}
-		if (empty($str)) {
-			return array();
-		}
-		$arr = explode($sep, $str);
-		$arr = array_map('trim', $arr);
-		$arr = array_filter($arr);
-		return $arr;
-	}
-
-	private function is_front_end() {
-		if (function_exists(__FUNCTION__)) {
-			$func = __FUNCTION__;
-			return $func();
-		}
-		if (is_admin() && !wp_doing_ajax()) {
-			return false;
-		}
-		if (wp_doing_ajax()) {
-			if (!empty($_SERVER["HTTP_REFERER"])) {
-				$url_test = $_SERVER["HTTP_REFERER"];
-			}
-			else {
-				$url_test = $this->get_current_uri();
-			}
-			if (strpos($url_test, admin_url()) !== false) {
-				return false;
-			}
-		}
-		return true;
-	}
-
-	private function get_current_uri() {
-		if (function_exists(__FUNCTION__)) {
-			$func = __FUNCTION__;
-			return $func();
-		}
-	 	$res  = is_ssl() ? 'https://' : 'http://';
-	 	$res .= $_SERVER['HTTP_HOST'];
-	 	$res .= $_SERVER['REQUEST_URI'];
-		return $res;
-	}
-
 	private function strip_all_shortcodes($str = '') {
 		if (function_exists(__FUNCTION__)) {
 			$func = __FUNCTION__;
 			return $func($str);
 		}
-		return preg_replace("/\[[^\]]+\]/is", "", $str);
+		$go = true;
+		// inline scripts
+		if (strpos($str, '<script') !== false) {
+			$go = false;
+		}
+		// [] inside html tag
+		if ($go && preg_match("/<[a-z]+ [^>\[\]]+\[[^>]+>/is", $str)) {
+			$go = false;
+		}
+		if ($go) {
+			$str = preg_replace("/\[[^\]]{5,}\]/is", "", $str); // more than 4 letters
+		}
+		return $str;
 	}
 
 	/* admin */
-
-	public function admin_menu() {
-		if (!is_array($GLOBALS['menu'])) {
-			return;
-		}
-
-		$has_parent = false;
-		$parent_slug = self::$prefix;
-		$parent_name = apply_filters('halftheory_admin_menu_parent', 'Halftheory');
-		$parent_name = apply_filters('eventcalendar_admin_menu_parent', $parent_name);
-
-		// set parent to nothing to skip parent menu creation
-		if (empty($parent_name)) {
-			add_options_page(
-				$this->plugin_title,
-				$this->plugin_title,
-				'manage_options',
-				self::$prefix,
-				__CLASS__ .'::menu_page'
-			);
-			return;
-		}
-
-		// find top level menu if it exists
-	    foreach ($GLOBALS['menu'] as $value) {
-	    	if ($value[0] == $parent_name) {
-	    		$parent_slug = $value[2];
-	    		$has_parent = true;
-	    		break;
-	    	}
-	    }
-
-		// add top level menu if it doesn't exist
-		if (!$has_parent) {
-			add_menu_page(
-				$this->plugin_title,
-				$parent_name,
-				'manage_options',
-				$parent_slug,
-				__CLASS__ .'::menu_page'
-			);
-		}
-
-		// add the menu
-		add_submenu_page(
-			$parent_slug,
-			$this->plugin_title,
-			$this->plugin_title,
-			'manage_options',
-			self::$prefix,
-			__CLASS__ .'::menu_page'
-		);
-	}
 
 	public function menu_page() {
  		global $title;
@@ -205,18 +106,11 @@ class Event_Calendar {
 		<div class="wrap">
 			<h2><?php echo $title; ?></h2>
 		<?php
- 		$plugin = new Event_Calendar();
+ 		$plugin = new static(static::$plugin_basename, static::$prefix, false);
 
 	    // http://codex.wordpress.org/Geodata
-        if ($_POST['save']) {
+		if ($plugin->save_menu_page()) {
         	$save = function() use ($plugin) {
-				// verify this came from the our screen and with proper authorization
-				if (!isset($_POST[$plugin->plugin_name.'::menu_page'])) {
-					return;
-				}
-				if (!wp_verify_nonce($_POST[$plugin->plugin_name.'::menu_page'], plugin_basename(__FILE__))) {
-					return;
-				}
 				// get values
 				$options_arr = $plugin->get_options_array();
 				$options = array();
@@ -225,7 +119,7 @@ class Event_Calendar {
 					if (!isset($_POST[$name])) {
 						continue;
 					}
-					if (empty($_POST[$name])) {
+					if ($this->empty_notzero($_POST[$name])) {
 						continue;
 					}
 					$options[$value] = $_POST[$name];
@@ -234,12 +128,12 @@ class Event_Calendar {
 	            $updated = '<div class="updated"><p><strong>Options saved.</strong></p></div>';
 	            $error = '<div class="error"><p><strong>Error: There was a problem.</strong></p></div>';
 				if (!empty($options)) {
-		            if ($plugin->update_option($options)) {
+		            if ($plugin->update_option($plugin::$prefix, $options)) {
 		            	echo $updated;
 		            }
 		        	else {
 		        		// where there changes?
-		        		$options_old = $plugin->get_option(null, array());
+		        		$options_old = $plugin->get_option($plugin::$prefix, null, array());
 		        		ksort($options_old);
 		        		ksort($options);
 		        		if ($options_old !== $options) {
@@ -280,7 +174,7 @@ class Event_Calendar {
 					)
 				);
 				$posts = get_posts($args);
-				if (!empty($posts)) {
+				if (!empty($posts) && !is_wp_error($posts)) {
 					foreach ($posts as $post) {
 						$date_start = get_post_meta($post->ID, 'event_begin', true);
 						if (!empty($date_start)) {
@@ -298,7 +192,7 @@ class Event_Calendar {
 							'geo_longitude' => get_post_meta($post->ID, 'geo_longitude', true),
 						);
 						$postmeta = array_filter($postmeta);
-						update_post_meta($post->ID, $plugin::$prefix, $postmeta);
+						update_post_meta($post->ID, $plugin::$postmeta_key, $postmeta);
 					}
 	            	echo '<div class="updated"><p><strong>Imported data from the Event Post plugin.</strong></p></div>';
 				}
@@ -327,7 +221,7 @@ class Event_Calendar {
 					);
 					$posts = get_posts($args);
 				}
-				if (!empty($posts)) {
+				if (!empty($posts) && !is_wp_error($posts)) {
 					foreach ($posts as $post) {
 						delete_post_meta($post->ID, 'event_begin');
 						delete_post_meta($post->ID, 'event_end');
@@ -347,17 +241,17 @@ class Event_Calendar {
 
 		// show the form
 		$options_arr = $plugin->get_options_array();
-		$options = $plugin->get_option(null, array());
+		$options = $plugin->get_option($plugin::$prefix, null, array());
 		$options = array_merge( array_fill_keys($options_arr, null), $options );
 		?>
 	    <form id="<?php echo $plugin::$prefix; ?>-admin-form" name="<?php echo $plugin::$prefix; ?>-admin-form" method="post" action="<?php echo $_SERVER['REQUEST_URI']; ?>">
 		<?php
 		// Use nonce for verification
-		wp_nonce_field(plugin_basename(__FILE__), $plugin->plugin_name.'::'.__FUNCTION__);
+		wp_nonce_field($plugin::$plugin_basename, $plugin->plugin_name.'::'.__FUNCTION__);
 		?>
 	    <div id="poststuff">
 
-        <p><label for="<?php echo $plugin::$prefix; ?>_active"><input type="checkbox" id="<?php echo $plugin::$prefix; ?>_active" name="<?php echo $plugin::$prefix; ?>_active" value="1"<?php checked($options['active'], 1); ?> /> <?php echo $plugin->plugin_title; ?> active?</label></p>
+        <p><label for="<?php echo $plugin::$prefix; ?>_active"><input type="checkbox" id="<?php echo $plugin::$prefix; ?>_active" name="<?php echo $plugin::$prefix; ?>_active" value="1"<?php checked($options['active'], 1); ?> /> <?php echo $plugin->plugin_title; ?> <?php _e('active?'); ?></label></p>
 
         <div class="postbox">
         	<div class="inside">
@@ -369,7 +263,6 @@ class Event_Calendar {
 	            foreach ($arr as $key => $value) {
 	            	$post_types[$key] = $value->label;
 	            }
-	            $post_types = apply_filters('eventcalendar_post_types', $post_types);
 	            $options['post_types'] = $plugin->make_array($options['post_types']);
 	            foreach ($post_types as $key => $value) {
 					echo '<label style="display: inline-block; width: 50%;"><input type="checkbox" name="'.$plugin::$prefix.'_post_types[]" value="'.$key.'"';
@@ -396,7 +289,6 @@ class Event_Calendar {
         <div class="postbox">
         	<div class="inside">
 	            <h4><?php _e('Maps'); ?></h4>
-
 				<?php
 				$maps_providers = array(
 					'openstreetmap' => 'OpenStreetMap',
@@ -427,9 +319,7 @@ class Event_Calendar {
         	</div>
         </div>
 
-        <p class="submit">
-            <input type="submit" value="<?php _e('Update'); ?>" id="publish" class="button button-primary button-large" name="save">
-        </p>
+        <?php submit_button(__('Update'), array('primary','large'), 'save'); ?>
 
         </div><!-- poststuff -->
     	</form>
@@ -439,20 +329,21 @@ class Event_Calendar {
 	}
 
 	public function add_meta_boxes($post_type) {
-		$post_types = $this->get_option('post_types', array());
+		$post_types = $this->get_option(static::$prefix, 'post_types', array());
 		if (!in_array($post_type, $post_types)) {
 			return;
 		}
 		add_meta_box(
-			self::$prefix,
+			static::$prefix,
 			$this->plugin_title,
 			array($this, 'postmeta'),
 			$post_type
 		);
 	}
+
 	public function add_meta_boxes_frontend() {
 		global $post;
-		$post_types = $this->get_option('post_types', array());
+		$post_types = $this->get_option(static::$prefix, 'post_types', array());
 		// checking bbpress because $post is unreliable
 		if (current_filter() == 'bbp_theme_after_forum_form_content' && !in_array('forum', $post_types)) {
 			return;
@@ -466,93 +357,100 @@ class Event_Calendar {
 		elseif (!in_array($post->post_type, $post_types)) {
 			return;
 		}
-		$str = '<p><button class="'.self::$prefix.'-toggle">Toggle '.$this->plugin_title.' options</button></p>';
+		$str = '<p><button class="'.static::$prefix.'-toggle">Toggle '.$this->plugin_title.' options</button></p>';
 		$str = apply_filters('eventcalendar_toggle', $str);
 		echo $str;
 		$this->postmeta();
 	}
+
 	public function postmeta() { // may be used in admin or frontend
 		global $post;
 
 		$postmeta_arr = $this->get_postmeta_array();
-		$postmeta = get_post_meta($post->ID, self::$prefix, true);
+		$postmeta = get_post_meta($post->ID, self::$postmeta_key, true);
 		$postmeta = array_merge( array_fill_keys($postmeta_arr, null), $this->make_array($postmeta) );
 
 		// Use nonce for verification
-		wp_nonce_field(plugin_basename(__FILE__), $this->plugin_name.'::'.__FUNCTION__);
+		wp_nonce_field(static::$plugin_basename, $this->plugin_name.'::'.__FUNCTION__);
 
 		// datetimepicker
-		$js_handle_datetimepicker = $this->enqueue_script(self::$prefix.'-datetimepicker', plugins_url('/assets/js/datetimepicker/jquery.datetimepicker.full.min.js', __FILE__), array('jquery'));
-		$this->enqueue_style(self::$prefix.'-datetimepicker', plugins_url('/assets/js/datetimepicker/jquery.datetimepicker.min.css', __FILE__));
+		$js_handle_datetimepicker = $this->enqueue_script(static::$prefix.'-datetimepicker', plugins_url('/assets/js/datetimepicker/jquery.datetimepicker.full.min.js', __FILE__), array('jquery'));
+		$this->enqueue_style(static::$prefix.'-datetimepicker', plugins_url('/assets/js/datetimepicker/jquery.datetimepicker.min.css', __FILE__));
 
 		// js + css
-		wp_enqueue_script(self::$prefix.'-postmeta', plugins_url('/assets/js/postmeta.min.js', __FILE__), array($js_handle_datetimepicker), null, true);
-        wp_localize_script(self::$prefix.'-postmeta', 'postmeta', array(
-            'prefix' => self::$prefix,
+		wp_enqueue_script(static::$prefix.'-postmeta', plugins_url('/assets/js/postmeta.min.js', __FILE__), array($js_handle_datetimepicker), null, true);
+        wp_localize_script(static::$prefix.'-postmeta', 'postmeta', array(
+            'prefix' => static::$prefix,
             'ajaxurl' => admin_url().'admin-ajax.php'
         ));
-		wp_enqueue_style(self::$prefix.'-postmeta', plugins_url('/assets/css/postmeta.css', __FILE__), array(), null);
+		wp_enqueue_style(static::$prefix.'-postmeta', plugins_url('/assets/css/postmeta.css', __FILE__), array(), null);
+
+		// html
 		?>
-<div class="<?php echo self::$prefix; ?>">
-	<div class="<?php echo self::$prefix; ?>-fields <?php echo self::$prefix; ?>-date">
+<div class="<?php echo static::$prefix; ?>">
+	<div class="<?php echo static::$prefix; ?>-fields <?php echo static::$prefix; ?>-date">
 		<h4><?php _e('Date'); ?></h4>
 
-		<p><label for="<?php echo self::$prefix; ?>_date_start"><?php _e('Start:'); ?></label> <input type="text" name="<?php echo self::$prefix; ?>_date_start" id="<?php echo self::$prefix; ?>_date_start" value="<?php echo esc_attr($postmeta['date_start']); ?>" /></p>
+		<p><label for="<?php echo static::$prefix; ?>_date_start"><?php _e('Start:'); ?></label> <input type="text" name="<?php echo static::$prefix; ?>_date_start" id="<?php echo static::$prefix; ?>_date_start" value="<?php echo esc_attr($postmeta['date_start']); ?>" /></p>
 
-		<p><label for="<?php echo self::$prefix; ?>_date_end"><?php _e('End:'); ?></label> <input type="text" name="<?php echo self::$prefix; ?>_date_end" id="<?php echo self::$prefix; ?>_date_end" value="<?php echo esc_attr($postmeta['date_end']); ?>" /></p>
+		<p><label for="<?php echo static::$prefix; ?>_date_end"><?php _e('End:'); ?></label> <input type="text" name="<?php echo static::$prefix; ?>_date_end" id="<?php echo static::$prefix; ?>_date_end" value="<?php echo esc_attr($postmeta['date_end']); ?>" /></p>
 	</div>
-	<div class="<?php echo self::$prefix; ?>-fields <?php echo self::$prefix; ?>-location">
+	<div class="<?php echo static::$prefix; ?>-fields <?php echo static::$prefix; ?>-location">
 		<h4><?php _e('Location'); ?></h4>
 
-		<p><input type="text" name="<?php echo self::$prefix; ?>_geo_search" id="<?php echo self::$prefix; ?>_geo_search" value="" placeholder="Search for GPS coordinates" /> <input id="<?php echo self::$prefix; ?>_geo_search_button" class="button" value="Go" type="button" /></p>
-		<div id="<?php echo self::$prefix; ?>_geo_search_result"></div>
+		<p><input type="text" name="<?php echo static::$prefix; ?>_geo_search" id="<?php echo static::$prefix; ?>_geo_search" value="" placeholder="<?php _e('Search for GPS coordinates'); ?>" /> <input id="<?php echo static::$prefix; ?>_geo_search_button" class="button" value="Go" type="button" /></p>
+		<div id="<?php echo static::$prefix; ?>_geo_search_result"></div>
 
-		<p><label for="<?php echo self::$prefix; ?>_geo_address"><?php _e('Address:'); ?></label> <textarea name="<?php echo self::$prefix; ?>_geo_address" id="<?php echo self::$prefix; ?>_geo_address" rows="2"><?php echo $postmeta['geo_address']; ?></textarea></p>
+		<p><label for="<?php echo static::$prefix; ?>_geo_address"><?php _e('Address:'); ?></label> <textarea name="<?php echo static::$prefix; ?>_geo_address" id="<?php echo static::$prefix; ?>_geo_address" rows="2"><?php echo $postmeta['geo_address']; ?></textarea></p>
 
-		<p><label for="<?php echo self::$prefix; ?>_geo_latitude"><?php _e('Latitude:'); ?></label> <input type="text" name="<?php echo self::$prefix; ?>_geo_latitude" id="<?php echo self::$prefix; ?>_geo_latitude" value="<?php echo esc_attr($postmeta['geo_latitude']); ?>" /></p>
+		<p><label for="<?php echo static::$prefix; ?>_geo_latitude"><?php _e('Latitude:'); ?></label> <input type="text" name="<?php echo static::$prefix; ?>_geo_latitude" id="<?php echo static::$prefix; ?>_geo_latitude" value="<?php echo esc_attr($postmeta['geo_latitude']); ?>" /></p>
 
-		<p><label for="<?php echo self::$prefix; ?>_geo_longitude"><?php _e('Longitude:'); ?></label> <input type="text" name="<?php echo self::$prefix; ?>_geo_longitude" id="<?php echo self::$prefix; ?>_geo_longitude" value="<?php echo esc_attr($postmeta['geo_longitude']); ?>" /></p>
+		<p><label for="<?php echo static::$prefix; ?>_geo_longitude"><?php _e('Longitude:'); ?></label> <input type="text" name="<?php echo static::$prefix; ?>_geo_longitude" id="<?php echo static::$prefix; ?>_geo_longitude" value="<?php echo esc_attr($postmeta['geo_longitude']); ?>" /></p>
 	</div>
 </div>
 		<?php
 	}
-	public function save_post($post_ID, $post, $update) {
+
+	public function save_post($post_id, $post, $update) {
 		// verify if this is an auto save routine. 
 		// If it is our form has not been submitted, so we dont want to do anything
 		if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
 			return;
 		}
+    	if (empty($update)) {
+    		return;
+    	}
 		// verify this came from the our screen and with proper authorization
 		// because save_post can be triggered at other times
-		if (!isset($_POST[$this->plugin_name.'::postmeta'])) {
-			return;
-		}
-		if (!wp_verify_nonce($_POST[$this->plugin_name.'::postmeta'], plugin_basename(__FILE__))) {
-			return;
-		}		
-		// get values
-		$postmeta_arr = $this->get_postmeta_array();
-		$postmeta = array();
-		foreach ($postmeta_arr as $value) {
-			$name = self::$prefix.'_'.$value;
-			if (!isset($_POST[$name])) {
-				continue;
+		if (isset($_POST)) {
+			if (isset($_POST[$this->plugin_name.'::postmeta'])) {
+				if (wp_verify_nonce($_POST[$this->plugin_name.'::postmeta'], static::$plugin_basename)) {
+					// get values
+					$postmeta_arr = $this->get_postmeta_array();
+					$postmeta = array();
+					foreach ($postmeta_arr as $value) {
+						$name = static::$prefix.'_'.$value;
+						if (!isset($_POST[$name])) {
+							continue;
+						}
+						if ($this->empty_notzero($_POST[$name])) {
+							continue;
+						}
+						$postmeta[$value] = $_POST[$name];
+					}
+					// save it
+					$maybe_revision = wp_is_post_revision($post_id);
+					if ($maybe_revision !== false) {
+						$post_id = $maybe_revision;
+					}
+					if (!empty($postmeta)) {
+						update_post_meta($post_id, self::$postmeta_key, $postmeta);
+					}
+					else {
+						 delete_post_meta($post_id, self::$postmeta_key);
+					}
+				}
 			}
-			if (empty($_POST[$name])) {
-				continue;
-			}
-			$postmeta[$value] = $_POST[$name];
-		}
-		// save it
-		$maybe_revision = wp_is_post_revision($post_ID);
-		if ($maybe_revision !== false) {
-			$post_ID = $maybe_revision;
-		}
-		if (!empty($postmeta)) {
-			update_post_meta($post_ID, self::$prefix, $postmeta);
-		}
-		else {
-			 delete_post_meta($post_ID, self::$prefix);
 		}
 	}
 
@@ -569,48 +467,70 @@ class Event_Calendar {
 		if (!is_singular()) {
 			return $str;
 		}
-		// $atts - vars that determine list of events (options)
+
+		// options - list of keys
 		$options_arr = $this->get_options_array();
-		$options = $this->get_option(null, array());
-		$default_atts = array_merge( array_fill_keys($options_arr, null), $options );
-		unset($default_atts['active']);
+		$key = array_search('active', $options_arr);
+		if (!$this->empty_notzero($key)) {
+			unset($options_arr[$key]);
+		}
 		if (is_multisite()) {
-			$default_atts['sites'] = get_current_blog_id();
+			$options_arr[] = 'sites';
 		}
-		elseif (isset($atts['sites'])) {
-			unset($atts['sites']);
-		}
-		// resolve user input
+
+		// $atts - vars that determine list of events (options)
 		$atts = $this->make_array($atts);
+		// add options from db
+		$atts = wp_parse_args($atts, $this->get_option(static::$prefix, null, array()));
+		// removes keys not found in defaults
+		$atts = shortcode_atts(array_fill_keys($options_arr, null), $atts, $this->shortcode);
+		// resolve user input
 		if (!empty($atts)) {
-			$remove_quotes = function($str) {
-				return trim($str, "'".'"');
+			$trim_quotes = function($str) use (&$trim_quotes) {
+				if (is_string($str)) {
+					$str = trim($str, " '".'"');
+				}
+				elseif (is_array($str)) {
+					$str = array_map($trim_quotes, $str);
+				}
+				return $str;
 			};
-			$atts = array_map($remove_quotes, $atts);
-			$default_atts = shortcode_atts($default_atts, $atts, $this->shortcode); // removes keys not found in defaults
-			$default_atts['post_types'] = $this->make_array($default_atts['post_types']);
-			$default_atts['include_post_date'] = $this->true($default_atts['include_post_date']);
-			$default_atts['include_post_modified'] = $this->true($default_atts['include_post_modified']);
+			$atts = array_map($trim_quotes, $atts);
+			if (isset($atts['post_types'])) {
+				$atts['post_types'] = $this->make_array($atts['post_types']);
+			}
+			if (isset($atts['sites'])) {
+				$atts['sites'] = $this->make_array($atts['sites']);
+			}
+			if (isset($atts['include_post_date'])) {
+				$atts['include_post_date'] = $this->is_true($atts['include_post_date']);
+			}
+			if (isset($atts['include_post_modified'])) {
+				$atts['include_post_modified'] = $this->is_true($atts['include_post_modified']);
+			}
+			if (isset($atts['maps_load_startup'])) {
+				$atts['maps_load_startup'] = $this->is_true($atts['maps_load_startup']);
+			}
 		}
-		$atts = $default_atts;
+		$atts = array_filter($atts);
 
 		// fullcalendar
 		// css
-		$css_handle_fullcalendar = $this->enqueue_style(self::$prefix.'-fullcalendar', plugins_url('/assets/js/fullcalendar/fullcalendar.min.css', __FILE__));
-		$css_handle_fullcalendar_print = $this->enqueue_style(self::$prefix.'-fullcalendar-print', plugins_url('/assets/js/fullcalendar/fullcalendar.print.min.css', __FILE__), array($css_handle_fullcalendar), null, 'print');
+		$css_handle_fullcalendar = $this->enqueue_style(static::$prefix.'-fullcalendar', plugins_url('/assets/js/fullcalendar/fullcalendar.min.css', __FILE__));
+		$css_handle_fullcalendar_print = $this->enqueue_style(static::$prefix.'-fullcalendar-print', plugins_url('/assets/js/fullcalendar/fullcalendar.print.min.css', __FILE__), array($css_handle_fullcalendar), null, 'print');
 		// js
-		$js_handle_moment = $this->enqueue_script(self::$prefix.'-moment', plugins_url('/assets/js/fullcalendar/lib/moment.min.js', __FILE__));
+		$js_handle_moment = $this->enqueue_script(static::$prefix.'-moment', plugins_url('/assets/js/fullcalendar/lib/moment.min.js', __FILE__));
 		$js_handle_jquery = 'jquery';
 		if (!wp_script_is('jquery', 'registered')) {
 			$js_handle_jquery = $this->enqueue_script('jquery', plugins_url('/assets/js/fullcalendar/lib/jquery.min.js', __FILE__));
 		}
-		$js_handle_fullcalendar = $this->enqueue_script(self::$prefix.'-fullcalendar', plugins_url('/assets/js/fullcalendar/fullcalendar.min.js', __FILE__), array($js_handle_jquery, $js_handle_moment));
+		$js_handle_fullcalendar = $this->enqueue_script(static::$prefix.'-fullcalendar', plugins_url('/assets/js/fullcalendar/fullcalendar.min.js', __FILE__), array($js_handle_jquery, $js_handle_moment));
 		// qtip
 		// css
-		$css_handle_qtip = $this->enqueue_style(self::$prefix.'-qtip', plugins_url('/assets/js/qtip/jquery.qtip.min.css', __FILE__), array(), null, 'screen');
+		$css_handle_qtip = $this->enqueue_style(static::$prefix.'-qtip', plugins_url('/assets/js/qtip/jquery.qtip.min.css', __FILE__), array(), null, 'screen');
 		// js
-		$js_handle_imagesloaded = $this->enqueue_script(self::$prefix.'-imagesloaded', plugins_url('/assets/js/qtip/imagesloaded.pkgd.min.js', __FILE__), array($js_handle_jquery));
-		$this->enqueue_script(self::$prefix.'-qtip', plugins_url('/assets/js/qtip/jquery.qtip.min.js', __FILE__), array($js_handle_imagesloaded));
+		$js_handle_imagesloaded = $this->enqueue_script(static::$prefix.'-imagesloaded', plugins_url('/assets/js/qtip/imagesloaded.pkgd.min.js', __FILE__), array($js_handle_jquery));
+		$this->enqueue_script(static::$prefix.'-qtip', plugins_url('/assets/js/qtip/jquery.qtip.min.js', __FILE__), array($js_handle_imagesloaded));
 
 		// $args - list of vars to send to fullcalendar https://fullcalendar.io/docs/
 		$args = array(
@@ -624,8 +544,8 @@ class Event_Calendar {
 		// $qtip - list of vars to send to qtip http://qtip2.com/options
 		$qtip = array(
 			'content' => array(
-				'text' => 'Loading...',
-				'button' => 'Close'
+				'text' => __('Loading...'),
+				'button' => __('Close')
 			),
 			'hide' => array(
 				'event' => 'click unfocus mouseleave',
@@ -643,16 +563,16 @@ class Event_Calendar {
 		$qtip = apply_filters('eventcalendar_qtip_args', $qtip);
 
 		// plugin js
-		wp_enqueue_script(self::$prefix.'-fullcalendar-init', plugins_url('/assets/js/fullcalendar/fullcalendar-init.min.js', __FILE__), array($js_handle_fullcalendar), null, true);
-        wp_localize_script(self::$prefix.'-fullcalendar-init', 'fullcalendar', array(
-            'prefix' => self::$prefix,
+		wp_enqueue_script(static::$prefix.'-fullcalendar-init', plugins_url('/assets/js/fullcalendar/fullcalendar-init.min.js', __FILE__), array($js_handle_fullcalendar), null, true);
+        wp_localize_script(static::$prefix.'-fullcalendar-init', 'fullcalendar', array(
+            'prefix' => static::$prefix,
             'ajaxurl' => admin_url().'admin-ajax.php',
-            'data' => array_merge(array('action' => self::$prefix.'_fullcalendar'), array_filter($atts)),
+            'data' => array_merge(array('action' => static::$prefix.'_fullcalendar'), $atts),
             'args' => $args,
             'qtip' => $qtip
         ));
 
-        $str = '<div class="'.self::$prefix.'-fullcalendar"></div>';
+        $str = '<div class="'.static::$prefix.'-fullcalendar"></div>';
 		return apply_filters('eventcalendar_shortcode', $str);
 	}
 
@@ -682,19 +602,21 @@ class Event_Calendar {
 			if (!isset($_REQUEST['include_post_date']) && !isset($_REQUEST['include_post_modified'])) {
 				$args['meta_query'] = array(
 					array(
-						'key' => self::$prefix,
+						'key' => self::$postmeta_key,
 						'compare' => 'EXISTS',
 					)
 				);
 				$has_includes = false;
 			}
+			$args = apply_filters('eventcalendar_posts_args', $args, $default_args);
 			$posts = get_posts($args);
-			if (empty($posts)) {
+			if (empty($posts) || is_wp_error($posts)) {
 				return $items;
 			}
+			$posts = apply_filters('eventcalendar_posts', $posts, $args, $default_args);
 			foreach ($posts as $post) {
 	    		$item = array(
-	    			'title' => get_the_title($post),
+	    			'title' => get_post_field('post_title', $post, 'display'),
 	    			'url' => esc_url(get_permalink($post)),
 	    			'post_id' => $post->ID,
 	    		);
@@ -723,15 +645,15 @@ class Event_Calendar {
 			    			}
 	    				}
 	    			}
-	    			$item['className'] = self::$prefix.'-postmeta';
+	    			$item['className'] = static::$prefix.'-postmeta';
 	    		}
 	    		elseif (isset($_REQUEST['include_post_modified'])) {
 	    			$item['start'] = $post->post_modified;
-	    			$item['className'] = self::$prefix.'-modified';
+	    			$item['className'] = static::$prefix.'-modified';
 	    		}
 	    		elseif (isset($_REQUEST['include_post_date'])) {
 	    			$item['start'] = $post->post_date;
-	    			$item['className'] = self::$prefix.'-date';
+	    			$item['className'] = static::$prefix.'-date';
 	    		}
 	    		$items[] = array_merge($default_args, $item);
 			}
@@ -831,40 +753,21 @@ class Event_Calendar {
 	    	exit;
 	    }
         header('Content-Type: application/json');
-        $q = $_REQUEST['q'];
-        $transient_name = self::$prefix.'_geo_'.$q;
-
-        // look for old query
-        $val = $this->get_transient($transient_name);
-        if ($val !== false && !empty($val)) {
-	        echo $val;
-	        exit;
-        }
-
-        // make a new query
-        $url = set_url_scheme('http://nominatim.openstreetmap.org').'/search?q='.urlencode($q).'&format=json&limit=5&accept-language='.$this->get_language();
-		// use user_agent when available
-		$user_agent = $this->plugin_title;
-		if (isset($_SERVER["HTTP_USER_AGENT"]) && !empty($_SERVER["HTTP_USER_AGENT"])) {
-			$user_agent = $_SERVER["HTTP_USER_AGENT"];
-		}
-		$options = array('http' => array('user_agent' => $user_agent));
-		$context = stream_context_create($options);
-		$val = @file_get_contents($url, false, $context);
-		if ($val === false || (is_string($val) && trim($val) == '')) {
+        $val = self::get_geo_search($_REQUEST['q']);
+        if (empty($val)) {
         	$val = json_encode('There was a problem contacting openstreetmap.org');
-        }
-        else {
-			$this->set_transient($transient_name, $val, 30 * DAY_IN_SECONDS);
         }
         echo $val;
         exit;
     }
 
-	/* actions + filters */
+	/* actions */
 
 	public function the_content($str = '') {
-		if (!is_singular()) {
+		if (current_filter() == 'the_content' && !in_the_loop()) {
+			return $str;
+		}
+		if (!is_main_query() && !wp_doing_ajax()) {
 			return $str;
 		}
 		if (is_404()) {
@@ -876,17 +779,14 @@ class Event_Calendar {
 		if (is_home()) {
 			return $str;
 		}
-		if (!is_main_query() && !wp_doing_ajax()) {
-			return $str;
-		}
-		if (current_filter() == 'the_content' && !in_the_loop()) {
+		if (!is_singular()) {
 			return $str;
 		}
 		$postmeta = $this->post_has_event_data(get_the_ID());
 		if ($postmeta === false) {
 			return $str;
 		}
-		$post_types = $this->get_option('post_types', array());
+		$post_types = $this->get_option(static::$prefix, 'post_types', array());
 		// checking bbpress because $post is unreliable
 		if (current_filter() == 'bbp_template_after_single_forum' && !in_array('forum', $post_types)) {
 			return;
@@ -902,7 +802,7 @@ class Event_Calendar {
 		self::enqueue_event_scripts('css');
 
 		// start html
-		$res = '<div class="'.self::$prefix.'-event" itemscope itemtype="'.set_url_scheme('http://schema.org/Event').'">';
+		$res = '<div class="'.static::$prefix.'-event" itemscope itemtype="'.set_url_scheme('http://schema.org/Event').'">';
 
 		// date_start
 		$has_start = true;
@@ -925,13 +825,13 @@ class Event_Calendar {
 		}
 
 		if ($has_start || $has_end) {
-			$date_format = get_option('date_format', 'j F Y');
-			$time_format = get_option('time_format', 'H:i');
+			$date_format = $this->get_option('date_format', null, 'j F Y');
+			$time_format = $this->get_option('time_format', null, 'H:i');
 
-			$res .= '<div class="'.self::$prefix.'-fields '.self::$prefix.'-date">
-			<h4 class="'.self::$prefix.'-event-title">'.__('Event Date').'</h4>';
+			$res .= '<div class="'.static::$prefix.'-fields '.static::$prefix.'-date">
+			<h4 class="'.static::$prefix.'-event-title">'.__('Event Date').'</h4>';
 			if ($has_start) {
-				$res .= '<p><label for="'.self::$prefix.'_date_start">'.__('Start:').'</label><span class="'.self::$prefix.'_date_start" itemprop="startDate" content="'.date('Y-m-d\TH:i', strtotime($postmeta['date_start'])).'">';
+				$res .= '<p><label for="'.static::$prefix.'_date_start">'.__('Start:').'</label><span class="'.static::$prefix.'_date_start" itemprop="startDate" content="'.date('Y-m-d\TH:i', strtotime($postmeta['date_start'])).'">';
 				if (strpos($postmeta['date_start'], ' 00:00') === false) {
 					$res .= date($date_format.' - '.$time_format, strtotime($postmeta['date_start']));
 				}
@@ -941,7 +841,7 @@ class Event_Calendar {
 				$res .= '</span></p>';
 			}
 			if ($has_end) {
-				$res .= '<p><label for="'.self::$prefix.'_date_end">'.__('End:').'</label><span class="'.self::$prefix.'_date_end" itemprop="endDate" content="'.date('Y-m-d\TH:i', strtotime($postmeta['date_end'])).'">';
+				$res .= '<p><label for="'.static::$prefix.'_date_end">'.__('End:').'</label><span class="'.static::$prefix.'_date_end" itemprop="endDate" content="'.date('Y-m-d\TH:i', strtotime($postmeta['date_end'])).'">';
 				if (strpos($postmeta['date_end'], ' 00:00') === false) {
 					$res .= date($date_format.' - '.$time_format, strtotime($postmeta['date_end']));
 				}
@@ -955,31 +855,31 @@ class Event_Calendar {
 
 		$has_map = false;
 		if ($this->post_has_event_location($postmeta)) {
-			$res .= '<div class="'.self::$prefix.'-fields '.self::$prefix.'-location">
-			<h4 class="'.self::$prefix.'-event-title">'.__('Event Location').'</h4>';
+			$res .= '<div class="'.static::$prefix.'-fields '.static::$prefix.'-location">
+			<h4 class="'.static::$prefix.'-event-title">'.__('Event Location').'</h4>';
 
 			// geo_address
 			if (isset($postmeta['geo_address']) && !empty($postmeta['geo_address'])) {
-				$res .= '<p><label for="'.self::$prefix.'_geo_address">'.__('Address:').'</label><span class="'.self::$prefix.'_geo_address" itemprop="location" itemscope itemtype="'.set_url_scheme('http://schema.org/Place').'">'.nl2br($postmeta['geo_address']).'</span></p>';
+				$res .= '<p><label for="'.static::$prefix.'_geo_address">'.__('Address:').'</label><span class="'.static::$prefix.'_geo_address" itemprop="location" itemscope itemtype="'.set_url_scheme('http://schema.org/Place').'">'.nl2br($postmeta['geo_address']).'</span></p>';
 			}
 
 			// map
-			if (isset($postmeta['geo_latitude']) && isset($postmeta['geo_longitude']) && !empty($postmeta['geo_latitude']) && !empty($postmeta['geo_longitude']) && !empty($this->get_option('maps_provider', false))) {
+			if (isset($postmeta['geo_latitude']) && isset($postmeta['geo_longitude']) && !empty($postmeta['geo_latitude']) && !empty($postmeta['geo_longitude']) && !empty($this->get_option(static::$prefix, 'maps_provider', null))) {
 				$has_map = true;
 
 				// js
 				self::enqueue_event_scripts('js');
 
-				$res .= '<p><label for="'.self::$prefix.'-map">'.__('Map:').'</label><span><button class="'.self::$prefix.'-map-toggle" data-latitude="'.$postmeta['geo_latitude'].'" data-longitude="'.$postmeta['geo_longitude'].'" data-id="'.get_the_ID().'">'.__('Toggle Map').'</button></span></p>';
+				$res .= '<p><label for="'.static::$prefix.'-map">'.__('Map:').'</label><span><button class="'.static::$prefix.'-map-toggle" data-latitude="'.$postmeta['geo_latitude'].'" data-longitude="'.$postmeta['geo_longitude'].'" data-id="'.get_the_ID().'">'.__('Toggle Map').'</button></span></p>';
 			}
 			$res .= '</div>'; // close location
 		}
 		if ($has_map) {
 			$class = 'map-open';
-			if (empty($this->get_option('maps_load_startup', false))) {
+			if (empty($this->get_option(static::$prefix, 'maps_load_startup', null))) {
 				$class = 'map-close';
 			}
-			$res .= '<div class="'.self::$prefix.'-map '.$class.'" id="'.self::$prefix.'-map-'.get_the_ID().'" itemprop="geo" itemscope itemtype="'.set_url_scheme('http://schema.org/Map').'"></div>';
+			$res .= '<div class="'.static::$prefix.'-map '.$class.'" id="'.static::$prefix.'-map-'.get_the_ID().'" itemprop="geo" itemscope itemtype="'.set_url_scheme('http://schema.org/Map').'"></div>';
 		}
 
 		$res .= '</div>'; // close event
@@ -995,116 +895,6 @@ class Event_Calendar {
 
     /* functions */
 
-	private function true($value) {
-		if (is_bool($value)) {
-			return $value;
-		}
-		elseif (empty($value)) {
-			return false;
-		}
-		elseif (is_int($value)) {
-			if ($value == 1) {
-				return true;
-			}
-			elseif ($value == 0) {
-				return false;
-			}
-			return $value;
-		}
-		elseif (is_string($value)) {
-			if ($value == '1' || $value == 'true') {
-				return true;
-			}
-			elseif ($value == '0' || $value == 'false') {
-				return false;
-			}
-			return $value;
-		}
-		return false;
-	}
-
-	private function get_option($key = '', $default = array()) {
-		if (!isset($this->option)) {
-			if (is_multisite()) {
-				$option = get_site_option(self::$prefix, array());
-			}
-			else {
-				$option = get_option(self::$prefix, array());
-			}
-			$this->option = $option;
-		}
-		if (!empty($key)) {
-			if (array_key_exists($key, $this->option)) {
-				return $this->option[$key];
-			}
-			return $default;
-		}
-		return $this->option;
-	}
-	private function update_option($option) {
-		if (is_multisite()) {
-			$bool = update_site_option(self::$prefix, $option);
-		}
-		else {
-			$bool = update_option(self::$prefix, $option);
-		}
-		if ($bool !== false) {
-			$this->option = $option;
-		}
-		return $bool;
-	}
-	private function delete_option() {
-		if (is_multisite()) {
-			$bool = delete_site_option(self::$prefix);
-		}
-		else {
-			$bool = delete_option(self::$prefix);
-		}
-		if ($bool !== false && isset($this->option)) {
-			unset($this->option);
-		}
-		return $bool;
-	}
-	private function get_transient($transient) {
-		if (is_multisite()) {
-			$transient = substr($transient, 0, 167);
-			$value = get_site_transient($transient);
-		}
-		else {
-			$transient = substr($transient, 0, 172);
-			$value = get_transient($transient);
-		}
-		return $value;
-	}
-	private function set_transient($transient, $value, $expiration = 0) {
-		if (is_string($expiration)) {
-			$expiration = strtotime('+'.$expiration) - time();
-			if (!$expiration || $expiration < 0) {
-				$expiration = 0;
-			}
-		}
-		if (is_multisite()) {
-			$transient = substr($transient, 0, 167);
-			$bool = set_site_transient($transient, $value, $expiration);
-		}
-		else {
-			$transient = substr($transient, 0, 172);
-			$bool = set_transient($transient, $value, $expiration);
-		}
-		return $bool;
-	}
-	private function delete_transient($transient) {
-		if (is_multisite()) {
-			$transient = substr($transient, 0, 167);
-			$bool = delete_site_transient($transient);
-		}
-		else {
-			$transient = substr($transient, 0, 172);
-			$bool = delete_transient($transient);
-		}
-		return $bool;
-	}
-
     private function get_options_array() {
 		return array(
 			'active',
@@ -1116,6 +906,7 @@ class Event_Calendar {
 			'maps_load_startup',
 		);
     }
+
     private function get_postmeta_array() {
 		return array(
 			'date_start',
@@ -1135,7 +926,7 @@ class Event_Calendar {
 	}
 
 	private function post_has_event_data($post_ID) {
-		$postmeta = get_post_meta($post_ID, self::$prefix, true);
+		$postmeta = get_post_meta($post_ID, self::$postmeta_key, true);
 		if (empty($postmeta)) {
 			return false;
 		}
@@ -1153,6 +944,7 @@ class Event_Calendar {
 		}
 		return false;
 	}
+
 	private function post_has_event_location($postmeta) {
 		if (isset($postmeta['geo_address'])) {
 			if (!empty($postmeta['geo_address'])) {
@@ -1200,6 +992,7 @@ class Event_Calendar {
 		wp_enqueue_style($handle, $src, $deps, $ver, $media);
 		return $handle;
 	}
+
 	private function enqueue_script($handle, $src = '', $deps = array(), $ver = null, $in_footer = true) { // default: $in_footer = false
 		global $wp_scripts;
 		// update registered array if different src or deps
@@ -1238,7 +1031,8 @@ class Event_Calendar {
 	}
 
 	public static function enqueue_event_scripts($style_or_script = 'all') {
-		$plugin = new self(false);
+ 		$plugin = new static(static::$plugin_basename, static::$prefix, false);
+
 		// css
 		if ($style_or_script == 'all' || $style_or_script == 'css') {
 			if (wp_style_is($plugin::$prefix.'-event', 'enqueued') || wp_style_is($plugin::$prefix.'-event', 'registered')) {
@@ -1251,17 +1045,17 @@ class Event_Calendar {
 			if (wp_script_is($plugin::$prefix.'-event', 'enqueued') || wp_script_is($plugin::$prefix.'-event', 'registered')) {
 				return;
 			}
-			if (empty($plugin->get_option('maps_provider', false))) {
+			if (empty($plugin->get_option($plugin::$prefix, 'maps_provider', false))) {
 				return;
 			}
-			$maps_provider = $plugin->get_option('maps_provider', false);
+			$maps_provider = $plugin->get_option($plugin::$prefix, 'maps_provider', false);
 
 			// plugin js
 			$plugin->enqueue_script($plugin::$prefix.'-event', plugins_url('/assets/js/event.min.js', __FILE__), array('jquery'), null, true);
 			$data = array(
 	            'prefix' => $plugin::$prefix,
 	            'maps_provider' => $maps_provider,
-	            'maps_load_startup' => $plugin->get_option('maps_load_startup', false),
+	            'maps_load_startup' => $plugin->get_option($plugin::$prefix, 'maps_load_startup', false),
 	        );
 
 			// openstreetmap
@@ -1274,7 +1068,7 @@ class Event_Calendar {
 			// google js
 			if ($maps_provider == 'google') {
 				$args = array(
-					'key' => $plugin->get_option('maps_google_api_key', ''),
+					'key' => $plugin->get_option($plugin::$prefix, 'maps_google_api_key', ''),
 					'language' => $plugin->get_language(),
 					'callback' => $plugin::$prefix.'_init',
 				);
@@ -1283,6 +1077,34 @@ class Event_Calendar {
 			}
 		}
 	}
+
+    public static function get_geo_search($q = '', $limit = 4) {
+	    if (empty($q)) {
+	    	return false;
+	    }
+		$plugin = new static(static::$plugin_basename, static::$prefix, false);
+		$transient_name = $plugin::$prefix.'_geo_'.$q;
+		// look for old query
+		$val = $plugin->get_transient($transient_name);
+		if (!empty($val)) {
+			return $val;
+		}
+        // make a new query
+        $url = set_url_scheme('http://nominatim.openstreetmap.org').'/search?q='.urlencode($q).'&format=json&limit='.$limit.'&accept-language='.$plugin->get_language();
+		// use user_agent when available
+		$user_agent = $plugin->plugin_title;
+		if (isset($_SERVER["HTTP_USER_AGENT"]) && !empty($_SERVER["HTTP_USER_AGENT"])) {
+			$user_agent = $_SERVER["HTTP_USER_AGENT"];
+		}
+		$options = array('http' => array('user_agent' => $user_agent));
+		$context = stream_context_create($options);
+		$val = @file_get_contents($url, false, $context);
+		if ($val === false || (is_string($val) && trim($val) == '')) {
+			return false;
+		}
+		$plugin->set_transient($transient_name, $val, 30 * DAY_IN_SECONDS);
+		return $val;
+    }
 }
 endif;
 ?>
