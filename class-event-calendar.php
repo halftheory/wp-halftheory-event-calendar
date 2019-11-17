@@ -67,7 +67,9 @@ final class Event_Calendar extends Halftheory_Helper_Plugin {
 
 		// filters
 		$this->shortcode = 'event-calendar';
-		add_shortcode($this->shortcode, array($this,'shortcode'));
+		if (!shortcode_exists($this->shortcode)) {
+			add_shortcode($this->shortcode, array($this,'shortcode'));
+		}
 		if ($this->is_front_end()) {
 			add_filter('the_content', array($this,'the_content'), 20);
 			add_action('bbp_template_after_single_forum', array($this,'the_content'));
@@ -125,8 +127,8 @@ final class Event_Calendar extends Halftheory_Helper_Plugin {
 					$options[$value] = $_POST[$name];
 				}
 				// save it
-	            $updated = '<div class="updated"><p><strong>Options saved.</strong></p></div>';
-	            $error = '<div class="error"><p><strong>Error: There was a problem.</strong></p></div>';
+	            $updated = '<div class="updated"><p><strong>'.esc_html__('Options saved.').'</strong></p></div>';
+	            $error = '<div class="error"><p><strong>'.esc_html__('Error: There was a problem.').'</strong></p></div>';
 				if (!empty($options)) {
 		            if ($plugin->update_option($plugin::$prefix, $options)) {
 		            	echo $updated;
@@ -194,10 +196,10 @@ final class Event_Calendar extends Halftheory_Helper_Plugin {
 						$postmeta = array_filter($postmeta);
 						update_post_meta($post->ID, $plugin::$postmeta_key, $postmeta);
 					}
-	            	echo '<div class="updated"><p><strong>Imported data from the Event Post plugin.</strong></p></div>';
+	            	echo '<div class="updated"><p><strong>'.esc_html__('Imported data from the Event Post plugin.').'</strong></p></div>';
 				}
 				else {
-	            	echo '<div class="error"><p><strong>No data to import from the Event Post plugin.</strong></p></div>';
+	            	echo '<div class="error"><p><strong>'.esc_html__('No data to import from the Event Post plugin.').'</strong></p></div>';
 				}
 			}
 			// delete postmeta
@@ -230,10 +232,10 @@ final class Event_Calendar extends Halftheory_Helper_Plugin {
 						delete_post_meta($post->ID, 'geo_latitude');
 						delete_post_meta($post->ID, 'geo_longitude');
 					}
-	            	echo '<div class="updated"><p><strong>Deleted data from the Event Post plugin.</strong></p></div>';
+	            	echo '<div class="updated"><p><strong>'.esc_html__('Deleted data from the Event Post plugin.').'</strong></p></div>';
 				}
 				else {
-	            	echo '<div class="error"><p><strong>No data to delete from the Event Post plugin.</strong></p></div>';
+	            	echo '<div class="error"><p><strong>'.esc_html__('No data to delete from the Event Post plugin.').'</strong></p></div>';
 				}
 			}
 
@@ -580,10 +582,10 @@ final class Event_Calendar extends Halftheory_Helper_Plugin {
 
     public function ajax_fullcalendar() {
 	    if (!isset($_REQUEST['post_types'])) {
-	    	exit;
+	    	wp_die();
 	    }
 	    if (empty($_REQUEST['post_types'])) {
-	    	exit;
+	    	wp_die();
 	    }
 	    // items function
 		$get_items = function($default_args = array()) {
@@ -683,16 +685,15 @@ final class Event_Calendar extends Halftheory_Helper_Plugin {
 		else {
 			$items = $get_items( array('blog_id' => get_current_blog_id()) );
 		}
-	    echo json_encode($items);
-        exit;
+	    wp_send_json_success($items);
     }
 
     public function ajax_qtip() {
 	    if (!isset($_REQUEST['post_id'])) {
-	    	exit;
+	    	wp_die();
 	    }
 	    if (empty($_REQUEST['post_id'])) {
-	    	exit;
+	    	wp_die();
 	    }
 	    $post_id = absint($_REQUEST['post_id']);
 	    $blog_id = absint($_REQUEST['blog_id']);
@@ -742,23 +743,23 @@ final class Event_Calendar extends Halftheory_Helper_Plugin {
 			restore_current_blog();
 	    }
 	    echo $str;
-	    exit;
+	    wp_die();
 	}
 
     public function ajax_geo_search() {
 	    if (!isset($_REQUEST['q'])) {
-	    	exit;
+	    	wp_die();
 	    }
 	    if (empty($_REQUEST['q'])) {
-	    	exit;
+	    	wp_die();
 	    }
         header('Content-Type: application/json');
         $val = self::get_geo_search($_REQUEST['q']);
         if (empty($val)) {
-        	$val = json_encode('There was a problem contacting openstreetmap.org');
+        	$val = wp_json_encode('There was a problem contacting openstreetmap.org');
         }
         echo $val;
-        exit;
+		wp_die();
     }
 
 	/* actions */
