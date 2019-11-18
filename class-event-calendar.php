@@ -622,7 +622,7 @@ final class Event_Calendar extends Halftheory_Helper_Plugin {
 	    			'url' => esc_url(get_permalink($post)),
 	    			'post_id' => $post->ID,
 	    		);
-	    		$postmeta = $this->post_has_event_data($post->ID);
+	    		$postmeta = self::post_has_event_data($post->ID);
 	    		if (!$postmeta && !$has_includes) {
 	    			continue;
 	    		}
@@ -685,7 +685,8 @@ final class Event_Calendar extends Halftheory_Helper_Plugin {
 		else {
 			$items = $get_items( array('blog_id' => get_current_blog_id()) );
 		}
-	    wp_send_json_success($items);
+	    echo json_encode($items);
+	    wp_die();
     }
 
     public function ajax_qtip() {
@@ -753,7 +754,9 @@ final class Event_Calendar extends Halftheory_Helper_Plugin {
 	    if (empty($_REQUEST['q'])) {
 	    	wp_die();
 	    }
-        header('Content-Type: application/json');
+	    if (!headers_sent()) {
+        	header('Content-Type: application/json');
+        }
         $val = self::get_geo_search($_REQUEST['q']);
         if (empty($val)) {
         	$val = wp_json_encode('There was a problem contacting openstreetmap.org');
@@ -783,7 +786,7 @@ final class Event_Calendar extends Halftheory_Helper_Plugin {
 		if (!is_singular()) {
 			return $str;
 		}
-		$postmeta = $this->post_has_event_data(get_the_ID());
+		$postmeta = self::post_has_event_data(get_the_ID());
 		if ($postmeta === false) {
 			return $str;
 		}
@@ -926,7 +929,7 @@ final class Event_Calendar extends Halftheory_Helper_Plugin {
         return $language;
 	}
 
-	private function post_has_event_data($post_ID) {
+	public static function post_has_event_data($post_ID) {
 		$postmeta = get_post_meta($post_ID, self::$postmeta_key, true);
 		if (empty($postmeta)) {
 			return false;
