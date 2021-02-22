@@ -50,3 +50,11 @@ $prefix: 'eventcalendar';
 		}
 	}
 }
+.widget-area {
+	.#{$prefix}-event {
+		.#{$prefix}-fields {
+			width: auto;
+			float: none;
+		}
+	}
+}

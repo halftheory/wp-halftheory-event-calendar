@@ -35,7 +35,6 @@ The following filters are available for plugin/theme customization:
 - eventcalendar_posts
 - eventcalendar_the_content
 - eventcalendar_toggle
-- eventcalendar_post_has_event_data_required
 
 # Credits
 

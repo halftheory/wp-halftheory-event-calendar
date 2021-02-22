@@ -17,3 +17,5 @@
 .eventcalendar-event .eventcalendar-map.map-open { height: 15em; }
 
 .eventcalendar-event .eventcalendar-map.map-close { height: 0; }
+
+.widget-area .eventcalendar-event .eventcalendar-fields { width: auto; float: none; }

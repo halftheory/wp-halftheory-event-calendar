@@ -47,7 +47,7 @@ if (typeof postmeta === 'object') {
             for (var row in data) {
                 row = data[row];
                 if (row.lat!=undefined && row.lon!=undefined && row.display_name!=undefined) {
-                    res += '<p><a onclick="geo_search_apply(\''+row.display_name.replace('\'','&apos;').replace('"','&quot;')+'\',\''+row.lat+'\',\''+row.lon+'\');">';
+                    res += '<p><a onclick="geo_search_apply(\''+row.display_name.replace('\'','\\&apos;').replace('"','&quot;')+'\',\''+row.lat+'\',\''+row.lon+'\');">';
                     if (row.icon!=undefined) {
                         res += '<img src="'+row.icon+'" alt="'+row.type+'" /> ';
                     }

@@ -1,0 +1,11 @@
+@charset "UTF-8";
+
+$prefix: 'eventcalendar';
+
+.qtip-content {
+	img {
+		max-width: 100%;
+		max-height: 10em;
+		object-fit: cover;
+	}
+}
