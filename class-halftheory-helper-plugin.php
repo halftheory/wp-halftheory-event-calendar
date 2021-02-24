@@ -745,10 +745,10 @@ class Halftheory_Helper_Plugin {
 		return true;
 	}
 
-	public function get_current_uri() {
+	public function get_current_uri($keep_query = false) {
 		if (function_exists(__FUNCTION__)) {
 			$func = __FUNCTION__;
-			return $func();
+			return $func($keep_query);
 		}
 	 	$res  = is_ssl() ? 'https://' : 'http://';
 	 	$res .= $_SERVER['HTTP_HOST'];
@@ -757,6 +757,16 @@ class Halftheory_Helper_Plugin {
 			if (!empty($_SERVER["HTTP_REFERER"])) {
 				$res = $_SERVER["HTTP_REFERER"];
 			}
+		}
+		if (!$keep_query) {
+			$remove = array();
+			if ($str = parse_url($res, PHP_URL_QUERY)) {
+				$remove[] = '?'.$str;
+			}
+			if ($str = parse_url($res, PHP_URL_FRAGMENT)) {
+				$remove[] = '#'.$str;
+			}
+			$res = str_replace($remove, '', $res);
 		}
 		return $res;
 	}
