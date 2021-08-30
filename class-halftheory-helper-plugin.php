@@ -520,6 +520,7 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
                     'post__in',
                     'post__not_in',
                     'post_name__in',
+                    'post_type',
                 ),
                 'query' => array(
                 	'tax_query',

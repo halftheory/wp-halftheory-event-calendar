@@ -477,11 +477,11 @@ if ( ! class_exists('Halftheory_Event_Calendar', false) && class_exists('Halfthe
             wp_nonce_field($this->plugin_basename, $this->plugin_name . '::' . __FUNCTION__);
 
             // datetimepicker.
-            $js_handle_datetimepicker = $this->enqueue_script(static::$prefix . '-datetimepicker', plugins_url('/assets/js/datetimepicker/jquery.datetimepicker.full.min.js', __FILE__), array( 'jquery' ), '1.3.4');
-            $this->enqueue_style(static::$prefix . '-datetimepicker', plugins_url('/assets/js/datetimepicker/jquery.datetimepicker.min.css', __FILE__), array(), '1.3.4');
+            $js_handle_datetimepicker = $this->enqueue_script(static::$prefix . '-datetimepicker', plugins_url('/assets/js/datetimepicker/jquery.datetimepicker.full' . ( ! ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '.min' : '' ) . '.js', __FILE__), array( 'jquery' ), '1.3.4');
+            $this->enqueue_style(static::$prefix . '-datetimepicker', plugins_url('/assets/js/datetimepicker/jquery.datetimepicker' . ( ! ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '.min' : '' ) . '.css', __FILE__), array(), '1.3.4');
 
             // js + css.
-            wp_enqueue_script(static::$prefix . '-postmeta', plugins_url('/assets/js/postmeta.min.js', __FILE__), array( $js_handle_datetimepicker ), $this->get_plugin_version(), true);
+            wp_enqueue_script(static::$prefix . '-postmeta', plugins_url('/assets/js/postmeta' . ( ! ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '.min' : '' ) . '.js', __FILE__), array( $js_handle_datetimepicker ), $this->get_plugin_version(), true);
             wp_localize_script(static::$prefix . '-postmeta',
                 'postmeta',
                 array(
@@ -689,21 +689,21 @@ if ( ! class_exists('Halftheory_Event_Calendar', false) && class_exists('Halfthe
 
             // fullcalendar.
             // css.
-            $css_handle_fullcalendar = $this->enqueue_style(static::$prefix . '-fullcalendar', plugins_url('/assets/js/fullcalendar/fullcalendar.min.css', __FILE__), array(), '3.8.0');
-            $css_handle_fullcalendar_print = $this->enqueue_style(static::$prefix . '-fullcalendar-print', plugins_url('/assets/js/fullcalendar/fullcalendar.print.min.css', __FILE__), array( $css_handle_fullcalendar ), '3.8.0', 'print');
+            $css_handle_fullcalendar = $this->enqueue_style(static::$prefix . '-fullcalendar', plugins_url('/assets/js/fullcalendar/fullcalendar' . ( ! ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '.min' : '' ) . '.css', __FILE__), array(), '3.8.0');
+            $css_handle_fullcalendar_print = $this->enqueue_style(static::$prefix . '-fullcalendar-print', plugins_url('/assets/js/fullcalendar/fullcalendar.print' . ( ! ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '.min' : '' ) . '.css', __FILE__), array( $css_handle_fullcalendar ), '3.8.0', 'print');
             // js.
             $js_handle_moment = $this->enqueue_script(static::$prefix . '-moment', plugins_url('/assets/js/fullcalendar/lib/moment.min.js', __FILE__));
             $js_handle_jquery = 'jquery';
             if ( ! wp_script_is('jquery', 'registered') ) {
                 $js_handle_jquery = $this->enqueue_script('jquery', plugins_url('/assets/js/fullcalendar/lib/jquery.min.js', __FILE__), array(), '3.2.1');
             }
-            $js_handle_fullcalendar = $this->enqueue_script(static::$prefix . '-fullcalendar', plugins_url('/assets/js/fullcalendar/fullcalendar.min.js', __FILE__), array( $js_handle_jquery, $js_handle_moment ), '3.8.0');
+            $js_handle_fullcalendar = $this->enqueue_script(static::$prefix . '-fullcalendar', plugins_url('/assets/js/fullcalendar/fullcalendar' . ( ! ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '.min' : '' ) . '.js', __FILE__), array( $js_handle_jquery, $js_handle_moment ), '3.8.0');
             // qtip.
             // css.
-            $css_handle_qtip = $this->enqueue_style(static::$prefix . '-qtip', plugins_url('/assets/js/qtip/jquery.qtip.min.css', __FILE__), array(), '3.0.3', 'screen');
+            $css_handle_qtip = $this->enqueue_style(static::$prefix . '-qtip', plugins_url('/assets/js/qtip/jquery.qtip' . ( ! ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '.min' : '' ) . '.css', __FILE__), array(), '3.0.3', 'screen');
             // js.
             $js_handle_imagesloaded = $this->enqueue_script(static::$prefix . '-imagesloaded', plugins_url('/assets/js/qtip/imagesloaded.pkgd.min.js', __FILE__), array( $js_handle_jquery ), '4.1.2');
-            $this->enqueue_script(static::$prefix . '-qtip', plugins_url('/assets/js/qtip/jquery.qtip.min.js', __FILE__), array( $js_handle_imagesloaded ), '3.0.3');
+            $this->enqueue_script(static::$prefix . '-qtip', plugins_url('/assets/js/qtip/jquery.qtip' . ( ! ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '.min' : '' ) . '.js', __FILE__), array( $js_handle_imagesloaded ), '3.0.3');
 
             // $args - list of vars to send to fullcalendar https://fullcalendar.io/docs/
             $args = array(
@@ -739,7 +739,7 @@ if ( ! class_exists('Halftheory_Event_Calendar', false) && class_exists('Halfthe
             // css.
             $css_handle_plugin = $this->enqueue_style(static::$prefix . '-fullcalendar-init', plugins_url('/assets/css/fullcalendar-init.css', __FILE__), array( $css_handle_fullcalendar, $css_handle_qtip ), $this->get_plugin_version());
             // js
-            wp_enqueue_script(static::$prefix . '-fullcalendar-init', plugins_url('/assets/js/fullcalendar/fullcalendar-init.min.js', __FILE__), array( $js_handle_fullcalendar ), $this->get_plugin_version(), true);
+            wp_enqueue_script(static::$prefix . '-fullcalendar-init', plugins_url('/assets/js/fullcalendar/fullcalendar-init' . ( ! ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '.min' : '' ) . '.js', __FILE__), array( $js_handle_fullcalendar ), $this->get_plugin_version(), true);
             wp_localize_script(static::$prefix . '-fullcalendar-init',
                 'fullcalendar',
                 array(
@@ -1415,7 +1415,7 @@ if ( ! class_exists('Halftheory_Event_Calendar', false) && class_exists('Halfthe
                 $maps_provider = $this->get_options_context('db', 'maps_provider');
 
                 // plugin js.
-                $this->enqueue_script(static::$prefix . '-event', plugins_url('/assets/js/event.min.js', __FILE__), array( 'jquery' ), $this->get_plugin_version(), true);
+                $this->enqueue_script(static::$prefix . '-event', plugins_url('/assets/js/event' . ( ! ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '.min' : '' ) . '.js', __FILE__), array( 'jquery' ), $this->get_plugin_version(), true);
                 $data = array(
                     'prefix' => static::$prefix,
                     'maps_provider' => $maps_provider,
