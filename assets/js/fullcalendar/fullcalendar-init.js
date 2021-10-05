@@ -23,7 +23,7 @@ if (typeof fullcalendar === 'object') {
 		    	if (typeof $.fn.qtip === 'function' && view.name == 'month') {
 					if (event.blog_id && event.post_id > 0) {
 						var event_id = fullcalendar.prefix+'-'+event.blog_id+'-'+event.post_id;
-						
+
 						var eventClassName = fullcalendar.prefix;
 						if (event.className) {
 							eventClassName += ' '+event.className;

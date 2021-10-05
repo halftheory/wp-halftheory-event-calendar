@@ -758,17 +758,18 @@ if ( ! class_exists('Halftheory_Event_Calendar', false) && class_exists('Halfthe
         /* ajax */
 
         public function ajax_fullcalendar() {
-            if ( ! isset($_REQUEST['post_types']) ) {
+            // get post types, and more.
+            $post_types = isset($_REQUEST['post_types']) ? $this->make_array($_REQUEST['post_types']) : $this->get_options_context('db', 'post_types');
+            if ( empty($post_types) ) {
                 wp_die();
             }
-            if ( empty($_REQUEST['post_types']) ) {
-                wp_die();
-            }
+            $include_post_date = isset($_REQUEST['include_post_date']) ? $this->is_true($_REQUEST['include_post_date']) : $this->get_options_context('db', 'include_post_date');
+            $include_post_modified = isset($_REQUEST['include_post_modified']) ? $this->is_true($_REQUEST['include_post_modified']) : $this->get_options_context('db', 'include_post_modified');
             // items function.
-            $get_items = function ( $default_args = array() ) {
+            $get_items = function ( $default_args = array() ) use ( $post_types, $include_post_date, $include_post_modified ) {
                 $items = array();
                 $args = array(
-                    'post_type' => $this->make_array($_REQUEST['post_types']),
+                    'post_type' => $post_types,
                     'post_status' => array( 'publish', 'inherit' ),
                     'posts_per_page' => -1,
                     'no_found_rows' => true,
@@ -778,7 +779,7 @@ if ( ! class_exists('Halftheory_Event_Calendar', false) && class_exists('Halfthe
                     'suppress_filters' => false,
                 );
                 $has_includes = true;
-                if ( ! isset($_REQUEST['include_post_date']) && ! isset($_REQUEST['include_post_modified']) ) {
+                if ( ! $include_post_date && ! $include_post_modified ) {
                     $args['meta_query'] = array(
                         array(
                             'key' => $this->postmeta_key,
@@ -811,17 +812,17 @@ if ( ! class_exists('Halftheory_Event_Calendar', false) && class_exists('Halfthe
                         if ( $has_end ) {
                             $item['end'] = gmdate('Y-m-d\TH:i:s', strtotime($postmeta['date_end']));
                             // find all day events.
-                            if ( ! preg_match("/[0-9]{2}:[0-9]{2}/i", $postmeta['date_start']) || strpos($postmeta['date_start'], '00:00') !== false ) {
+                            if ( ! preg_match('/[0-9]{2}:[0-9]{2}/i', $postmeta['date_start']) || strpos($postmeta['date_start'], '00:00') !== false ) {
                                 if ( ( strtotime($postmeta['date_end']) - strtotime($postmeta['date_start']) ) > DAY_IN_SECONDS ) {
                                     $item['allDay'] = true;
                                 }
                             }
                         }
                         $item['className'] = static::$prefix . '-postmeta';
-                    } elseif ( isset($_REQUEST['include_post_modified']) ) {
+                    } elseif ( $include_post_modified ) {
                         $item['start'] = $post->post_modified;
                         $item['className'] = static::$prefix . '-modified';
-                    } elseif ( isset($_REQUEST['include_post_date']) ) {
+                    } elseif ( $include_post_date ) {
                         $item['start'] = $post->post_date;
                         $item['className'] = static::$prefix . '-date';
                     }
