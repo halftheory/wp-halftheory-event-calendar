@@ -667,15 +667,7 @@ if ( ! class_exists('Halftheory_Event_Calendar', false) && class_exists('Halfthe
             // resolve user input.
             $atts = $this->make_array($atts);
             if ( ! empty($atts) ) {
-                $trim_quotes = function ( $str ) use ( &$trim_quotes ) {
-                    if ( is_string($str) ) {
-                        $str = trim($str, " '" . '"');
-                    } elseif ( is_array($str) ) {
-                        $str = array_map($trim_quotes, $str);
-                    }
-                    return $str;
-                };
-                $atts = array_map($trim_quotes, $atts);
+                $atts = $this->trim_quotes($atts);
                 $atts = $this->get_options_context('input', null, array(), $atts);
                 // options - defaults.
                 $options_db = $this->get_options_context('db');
@@ -1514,6 +1506,19 @@ if ( ! class_exists('Halftheory_Event_Calendar', false) && class_exists('Halfthe
             if ( $go ) {
                 // more than 4 letters.
                 $str = preg_replace("/\[[^\]]{5,}\]/is", '', $str);
+            }
+            return $str;
+        }
+
+        private function trim_quotes( $str = '' ) {
+            if ( function_exists(__FUNCTION__) ) {
+                $func = __FUNCTION__;
+                return $func($str);
+            }
+            if ( is_string($str) ) {
+                $str = trim($str, " \n\r\t\v\0'" . '"');
+            } elseif ( is_array($str) ) {
+                $str = array_map(array( $this, __FUNCTION__ ), $str);
             }
             return $str;
         }

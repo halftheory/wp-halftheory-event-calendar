@@ -77,15 +77,17 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 					),
 				);
 				*/
-				$this->menu_page_tab_active = isset( $_GET['tab'] ) ? $_GET['tab'] : '';
+				$this->menu_page_tab_active = isset($_GET['tab']) ? $_GET['tab'] : '';
 			}
 		}
 
 		protected function setup_actions() {
 			// plugin activation/deactivation.
-			register_activation_hook( __FILE__, array( $this, 'plugin_activation' ) );
-			register_deactivation_hook( __FILE__, array( $this, 'plugin_deactivation' ) );
-			register_uninstall_hook( __FILE__, array( $this->plugin_name, 'plugin_uninstall' ) );
+			$plugin_file = $this->get_plugin_file();
+			register_activation_hook($plugin_file, array( $this, 'plugin_activation' ));
+			register_deactivation_hook($plugin_file, array( $this, 'plugin_deactivation' ));
+			register_uninstall_hook($plugin_file, array( $this->plugin_name, 'plugin_uninstall' ));
+			unset($plugin_file);
 
 			// admin options.
 			if ( ! $this->is_front_end() ) {
@@ -242,6 +244,18 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 
 		/* functions */
 
+		private function get_plugin_file() {
+			$res = __FILE__;
+			if ( isset($this->plugin_basename) ) {
+				if ( strpos($this->plugin_basename, WP_PLUGIN_DIR) === false && strpos($this->plugin_basename, WPMU_PLUGIN_DIR) === false ) {
+					$res = WP_PLUGIN_DIR . '/' . ltrim($this->plugin_basename, '/ ');
+				} else {
+					$res = $this->plugin_basename;
+				}
+			}
+			return $res;
+		}
+
 		public function get_plugin_data_field( $plugin_file = null, $field = null ) {
 			if ( empty($plugin_file) || empty($field) ) {
 				return null; // better to return null rather than false - better for wp_enqueue_scripts etc.
@@ -271,7 +285,7 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 				if ( property_exists($this, 'plugin_version') ) {
 					return $this->plugin_version;
 				}
-				$plugin_file = isset($this->plugin_basename) ? WP_PLUGIN_DIR . '/' . $this->plugin_basename : __FILE__;
+				$plugin_file = $this->get_plugin_file();
 			}
 			$res = $this->get_plugin_data_field($plugin_file, 'Version');
 			if ( $this_plugin ) {
@@ -373,6 +387,9 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 					<?php
 					global $pagenow;
 					foreach ( $this->menu_page_tabs as $key => $value ) {
+						if ( ! isset($value['name']) || empty($value['name']) ) {
+							continue;
+						}
 						if ( empty($key) ) {
 							echo '<a class="nav-tab' . esc_attr($this->menu_page_tab_active === $key ? ' nav-tab-active' : '') . '" href="' . esc_url( admin_url($pagenow . '?page=' . static::$prefix) ) . '">' . $value['name'] . '</a> ';
 						} else {
@@ -981,31 +998,6 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 
 		/* functions-common */
 
-		public function is_true( $value ) {
-			if ( function_exists(__FUNCTION__) ) {
-				$func = __FUNCTION__;
-				return $func($value);
-			}
-			if ( is_bool($value) ) {
-				return $value;
-			} elseif ( is_numeric($value) ) {
-				if ( (int) $value === 1 ) {
-					return true;
-				} elseif ( (int) $value === 0 ) {
-					return false;
-				}
-			} elseif ( is_string($value) ) {
-				if ( $value === '1' || $value === 'true' ) {
-					return true;
-				} elseif ( $value === '0' || $value === 'false' ) {
-					return false;
-				}
-			} elseif ( empty($value) ) {
-				return false;
-			}
-			return false;
-		}
-
 		public function empty_notzero( $value ) {
 			if ( function_exists(__FUNCTION__) ) {
 				$func = __FUNCTION__;
@@ -1022,25 +1014,30 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 			return false;
 		}
 
-		public function make_array( $str = '', $sep = ',' ) {
+		public function get_current_uri( $keep_query = false ) {
 			if ( function_exists(__FUNCTION__) ) {
 				$func = __FUNCTION__;
-				return $func($str, $sep);
+				return $func($keep_query);
 			}
-			if ( is_array($str) ) {
-				return $str;
-			}
-			if ( $this->empty_notzero($str) ) {
-				return array();
-			}
-			$arr = explode($sep, $str);
-			$arr = array_map('trim', $arr);
-			$arr = array_filter($arr,
-				function ( $v ) {
-					return ! $this->empty_notzero($v);
+		 	$res  = is_ssl() ? 'https://' : 'http://';
+		 	$res .= isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : '';
+		 	$res .= isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : $_SERVER['PHP_SELF'];
+			if ( wp_doing_ajax() && isset($_SERVER['HTTP_REFERER']) ) {
+				if ( ! empty($_SERVER["HTTP_REFERER"]) ) {
+					$res = $_SERVER["HTTP_REFERER"];
 				}
-			);
-			return $arr;
+			}
+			if ( ! $keep_query ) {
+				$remove = array();
+				if ( $str = wp_parse_url($res, PHP_URL_QUERY) ) {
+					$remove[] = '?' . $str;
+				}
+				if ( $str = wp_parse_url($res, PHP_URL_FRAGMENT) ) {
+					$remove[] = '#' . $str;
+				}
+				$res = str_replace($remove, '', $res);
+			}
+			return $res;
 		}
 
 		public function in_array_int( $needle, $haystack = array(), $strict = true ) {
@@ -1071,72 +1068,50 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 			return true;
 		}
 
-		public function get_current_uri( $keep_query = false ) {
+		public function is_true( $value ) {
 			if ( function_exists(__FUNCTION__) ) {
 				$func = __FUNCTION__;
-				return $func($keep_query);
+				return $func($value);
 			}
-		 	$res  = is_ssl() ? 'https://' : 'http://';
-		 	$res .= isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : '';
-		 	$res .= isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : $_SERVER['PHP_SELF'];
-			if ( wp_doing_ajax() && isset($_SERVER['HTTP_REFERER']) ) {
-				if ( ! empty($_SERVER["HTTP_REFERER"]) ) {
-					$res = $_SERVER["HTTP_REFERER"];
+			if ( is_bool($value) ) {
+				return $value;
+			} elseif ( is_numeric($value) ) {
+				if ( (int) $value === 1 ) {
+					return true;
+				} elseif ( (int) $value === 0 ) {
+					return false;
 				}
+			} elseif ( is_string($value) ) {
+				if ( $value === '1' || $value === 'true' ) {
+					return true;
+				} elseif ( $value === '0' || $value === 'false' ) {
+					return false;
+				}
+			} elseif ( empty($value) ) {
+				return false;
 			}
-			if ( ! $keep_query ) {
-				$remove = array();
-				if ( $str = wp_parse_url($res, PHP_URL_QUERY) ) {
-					$remove[] = '?' . $str;
-				}
-				if ( $str = wp_parse_url($res, PHP_URL_FRAGMENT) ) {
-					$remove[] = '#' . $str;
-				}
-				$res = str_replace($remove, '', $res);
-			}
-			return $res;
+			return false;
 		}
 
-		public function the_content_conditions( $str = '' ) {
+		public function make_array( $str = '', $sep = ',' ) {
 			if ( function_exists(__FUNCTION__) ) {
 				$func = __FUNCTION__;
-				return $func($str);
+				return $func($str, $sep);
 			}
-			$res = true;
-			if ( empty($str) ) {
-				$res = false;
+			if ( is_array($str) ) {
+				return $str;
 			}
-			if ( did_action('get_header') === 0 && ! wp_doing_ajax() && ! is_feed() ) {
-				$res = false;
+			if ( $this->empty_notzero($str) ) {
+				return array();
 			}
-			if ( is_404() ) {
-				$res = false;
-			}
-			if ( function_exists('is_signup_page') ) {
-				if ( is_signup_page() ) {
-					$res = false;
+			$arr = explode($sep, $str);
+			$arr = array_map('trim', $arr);
+			$arr = array_filter($arr,
+				function ( $v ) {
+					return ! $this->empty_notzero($v);
 				}
-			}
-			if ( function_exists('is_signup_page') ) {
-				if ( is_login_page() ) {
-					$res = false;
-				}
-			}
-			if ( ! is_main_query() && ! wp_doing_ajax() ) {
-				$res = false;
-			}
-			if ( ! in_the_loop() && current_filter() === 'the_content' ) {
-				// allow term_description().
-				if ( ! is_tax() && ! is_tag() && ! is_category() ) {
-					$res = false;
-				}
-			}
-			if ( ! is_singular() ) {
-				if ( ! is_tax() && ! is_tag() && ! is_category() && ! is_posts_page() && ! is_search() ) {
-					$res = false;
-				}
-			}
-			return apply_filters('the_content_conditions', $res);
+			);
+			return $arr;
 		}
 
 		public function link_terms( $str = '', $links = array(), $args = array() ) {
@@ -1308,6 +1283,48 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 				$str = implode($textarr);
 			}
 			return $str;
+		}
+
+		public function the_content_conditions( $str = '' ) {
+			if ( function_exists(__FUNCTION__) ) {
+				$func = __FUNCTION__;
+				return $func($str);
+			}
+			$res = true;
+			if ( empty($str) ) {
+				$res = false;
+			}
+			if ( did_action('get_header') === 0 && ! wp_doing_ajax() && ! is_feed() ) {
+				$res = false;
+			}
+			if ( is_404() ) {
+				$res = false;
+			}
+			if ( function_exists('is_signup_page') ) {
+				if ( is_signup_page() ) {
+					$res = false;
+				}
+			}
+			if ( function_exists('is_signup_page') ) {
+				if ( is_login_page() ) {
+					$res = false;
+				}
+			}
+			if ( ! is_main_query() && ! wp_doing_ajax() ) {
+				$res = false;
+			}
+			if ( ! in_the_loop() && current_filter() === 'the_content' ) {
+				// allow term_description().
+				if ( ! is_tax() && ! is_tag() && ! is_category() ) {
+					$res = false;
+				}
+			}
+			if ( ! is_singular() ) {
+				if ( ! is_tax() && ! is_tag() && ! is_category() && ! is_posts_page() && ! is_search() ) {
+					$res = false;
+				}
+			}
+			return apply_filters('the_content_conditions', $res);
 		}
 	}
 endif;
