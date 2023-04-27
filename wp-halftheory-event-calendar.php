@@ -946,26 +946,29 @@ if ( ! class_exists('Halftheory_Event_Calendar', false) && class_exists('Halfthe
 					$query->set('orderby', 'date');
 					return;
 				}
-				$post_types = $this->get_options_context('db', 'post_types');
-				if ( empty($post_types) ) {
-					$query->set('orderby', 'date');
-					return;
-				}
-				$query_post_types = $this->make_array($query->get('post_type'));
-				if ( empty($query_post_types) ) {
-					$query->set('orderby', 'date');
-					return;
-				}
-				$found = false;
-				foreach ( $query_post_types as $value ) {
-					if ( in_array($value, $post_types, true) ) {
-						$found = true;
-						break;
+				// TODO
+				if ( is_main_site() ) {
+					$post_types = $this->get_options_context('db', 'post_types');
+					if ( empty($post_types) ) {
+						$query->set('orderby', 'date');
+						return;
 					}
-				}
-				if ( ! $found ) {
-					$query->set('orderby', 'date');
-					return;
+					$query_post_types = $this->make_array($query->get('post_type'));
+					if ( empty($query_post_types) ) {
+						$query->set('orderby', 'date');
+						return;
+					}
+					$found = false;
+					foreach ( $query_post_types as $value ) {
+						if ( in_array($value, $post_types, true) ) {
+							$found = true;
+							break;
+						}
+					}
+					if ( ! $found ) {
+						$query->set('orderby', 'date');
+						return;
+					}
 				}
 				$query = $this->wp_query_orderby_date_start($query);
 			}
