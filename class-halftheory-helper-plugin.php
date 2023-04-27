@@ -792,7 +792,7 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 			return $res;
 		}
 
-		// options
+		// options.
 		private function get_option_name( $name = '', $is_network = null ) {
 			if ( empty($name) ) {
 				$name = static::$prefix;
@@ -809,7 +809,12 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 		}
 		public function get_option( $name = '', $key = null, $default = array() ) {
 			$name = $this->get_option_name($name);
-			if ( ! isset($this->options[ $name ]) ) {
+			// switched blogs don't use cache.
+			if ( is_multisite() && ms_is_switched() && ! $this->is_plugin_network() ) {
+				$option = get_blog_option(get_current_blog_id(), $name, array());
+			} elseif ( isset($this->options[ $name ]) ) {
+				$option = $this->options[ $name ];
+			} else {
 				if ( $this->is_plugin_network() ) {
 					$option = get_site_option($name, array());
 				} else {
@@ -817,24 +822,28 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 				}
 				$this->options[ $name ] = $option;
 			}
-			if ( ! $this->empty_notzero($key) && is_array($this->options[ $name ]) ) {
-				if ( array_key_exists($key, $this->options[ $name ]) ) {
-					return $this->options[ $name ][ $key ];
+			if ( ! $this->empty_notzero($key) && is_array($option) ) {
+				if ( array_key_exists($key, $option) ) {
+					return $option[ $key ];
 				}
 				return $default;
 			}
-			return $this->options[ $name ];
+			return $option;
 		}
 		public function update_option( $name = '', $value = null ) {
 			$name = $this->get_option_name($name);
-			if ( $this->is_plugin_network() ) {
-				$bool = update_site_option($name, $value);
+			if ( is_multisite() && ms_is_switched() && ! $this->is_plugin_network() ) {
+				$bool = update_blog_option(get_current_blog_id(), $name, $value);
 			} else {
-				$bool = update_option($name, $value);
-			}
-			// cache.
-			if ( $bool !== false ) {
-				$this->options[ $name ] = $value;
+				if ( $this->is_plugin_network() ) {
+					$bool = update_site_option($name, $value);
+				} else {
+					$bool = update_option($name, $value);
+				}
+				// cache.
+				if ( $bool !== false ) {
+					$this->options[ $name ] = $value;
+				}
 			}
 			// is it false because there were no changes?
 			if ( $bool === false ) {
@@ -852,13 +861,18 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 		}
 		public function delete_option( $name = '' ) {
 			$name = $this->get_option_name($name);
-			if ( $this->is_plugin_network() ) {
-				$bool = delete_site_option($name);
+			if ( is_multisite() && ms_is_switched() && ! $this->is_plugin_network() ) {
+				$bool = delete_blog_option(get_current_blog_id(), $name);
 			} else {
-				$bool = delete_option($name);
-			}
-			if ( $bool !== false && isset($this->options[ $name ]) ) {
-				unset($this->options[ $name ]);
+				if ( $this->is_plugin_network() ) {
+					$bool = delete_site_option($name);
+				} else {
+					$bool = delete_option($name);
+				}
+				// cache.
+				if ( $bool !== false && isset($this->options[ $name ]) ) {
+					unset($this->options[ $name ]);
+				}
 			}
 			return $bool;
 		}
@@ -879,7 +893,7 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 			}
 		}
 
-		// transients
+		// transients.
 		private function get_transient_name( $name = '', $is_network = null ) {
 			if ( empty($name) ) {
 				$name = static::$prefix;
@@ -956,7 +970,7 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 			}
 		}
 
-		// postmeta
+		// postmeta.
 		private function get_postmeta_name( $name = '' ) {
 			if ( empty($name) ) {
 				$name = static::$prefix;
@@ -1025,7 +1039,7 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 			}
 		}
 
-		// usermeta
+		// usermeta.
 		private function get_usermeta_name( $name = '' ) {
 			if ( empty($name) ) {
 				$name = static::$prefix;
