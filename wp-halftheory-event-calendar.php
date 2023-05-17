@@ -55,7 +55,7 @@ if ( ! class_exists('Halftheory_Event_Calendar', false) && class_exists('Halfthe
 			// Stop if not active.
 			if ( empty(self::$active) ) {
 				if ( $this->is_front_end() ) {
-					add_action('pre_get_posts', array( $this, 'pre_get_posts' ));
+					add_action('pre_get_posts', array( $this, 'pre_get_posts' ), 90);
 				}
 				return;
 			}
@@ -96,7 +96,7 @@ if ( ! class_exists('Halftheory_Event_Calendar', false) && class_exists('Halfthe
 				add_shortcode($this->shortcode, array( $this, 'shortcode' ));
 			}
 			if ( $this->is_front_end() ) {
-				add_action('pre_get_posts', array( $this, 'pre_get_posts' ));
+				add_action('pre_get_posts', array( $this, 'pre_get_posts' ), 90);
 				add_filter('the_content', array( $this, 'the_content' ), 20);
 				add_action('bbp_template_after_single_forum', array( $this, 'the_content' ));
 				add_action('bbp_template_after_single_topic', array( $this, 'the_content' ));
