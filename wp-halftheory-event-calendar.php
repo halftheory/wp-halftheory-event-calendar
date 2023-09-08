@@ -25,11 +25,12 @@ eventcalendar_toggle
 // Exit if accessed directly.
 defined('ABSPATH') || exit;
 
-if ( ! class_exists('Halftheory_Helper_Plugin', false) && is_readable(dirname(__FILE__) . '/class-halftheory-helper-plugin.php') ) {
-	include_once dirname(__FILE__) . '/class-halftheory-helper-plugin.php';
+if ( ! class_exists('Halftheory_Helper_Plugin', false) && is_readable(__DIR__ . '/class-halftheory-helper-plugin.php') ) {
+	include_once __DIR__ . '/class-halftheory-helper-plugin.php';
 }
 
 if ( ! class_exists('Halftheory_Event_Calendar', false) && class_exists('Halftheory_Helper_Plugin', false) ) :
+	#[AllowDynamicProperties]
 	final class Halftheory_Event_Calendar extends Halftheory_Helper_Plugin {
 
 		protected static $instance;
@@ -54,13 +55,13 @@ if ( ! class_exists('Halftheory_Event_Calendar', false) && class_exists('Halfthe
 
 			// Stop if not active.
 			if ( empty(self::$active) ) {
-				if ( $this->is_front_end() ) {
+				if ( $this->is_public() ) {
 					add_action('pre_get_posts', array( $this, 'pre_get_posts' ), 90);
 				}
 				return;
 			}
 
-			if ( ! $this->is_front_end() ) {
+			if ( ! $this->is_public() ) {
 				// admin.
 				add_action('add_meta_boxes', array( $this, 'add_meta_boxes' ), 10, 2);
 				// add column for date_start.
@@ -95,7 +96,7 @@ if ( ! class_exists('Halftheory_Event_Calendar', false) && class_exists('Halfthe
 			if ( ! shortcode_exists($this->shortcode) ) {
 				add_shortcode($this->shortcode, array( $this, 'shortcode' ));
 			}
-			if ( $this->is_front_end() ) {
+			if ( $this->is_public() ) {
 				add_action('pre_get_posts', array( $this, 'pre_get_posts' ), 90);
 				add_filter('the_content', array( $this, 'the_content' ), 20);
 				add_action('bbp_template_after_single_forum', array( $this, 'the_content' ));
@@ -148,7 +149,7 @@ if ( ! class_exists('Halftheory_Event_Calendar', false) && class_exists('Halfthe
 						if ( $plugin->empty_notzero($_POST[ $name ]) ) {
 							continue;
 						}
-						$options[ $value ] = $_POST[ $name ];
+						$options[ $value ] = wp_unslash($_POST[ $name ]);
 					}
 					// save it.
 					$updated = '<div class="updated"><p><strong>' . esc_html__('Options saved.') . '</strong></p></div>';
@@ -156,16 +157,14 @@ if ( ! class_exists('Halftheory_Event_Calendar', false) && class_exists('Halfthe
 					if ( ! empty($options) ) {
 						$options = $plugin->get_options_context('input', null, array(), $options);
 						if ( $plugin->update_option($plugin::$prefix, $options) ) {
-							echo $updated;
+							echo wp_kses_post($updated);
 						} else {
-							echo $error;
+							echo wp_kses_post($error);
 						}
+					} elseif ( $plugin->delete_option($plugin::$prefix) ) {
+						echo wp_kses_post($updated);
 					} else {
-						if ( $plugin->delete_option($plugin::$prefix) ) {
-							echo $updated;
-						} else {
-							echo $updated;
-						}
+						echo wp_kses_post($updated);
 					}
 				};
 				$save();
@@ -300,7 +299,7 @@ if ( ! class_exists('Halftheory_Event_Calendar', false) && class_exists('Halfthe
 			$options = $plugin->get_options_context('admin_form');
 			?>
 
-			<form id="<?php echo esc_attr($plugin::$prefix); ?>-admin-form" name="<?php echo esc_attr($plugin::$prefix); ?>-admin-form" method="post" action="<?php echo esc_attr($_SERVER['REQUEST_URI']); ?>">
+			<form id="<?php echo esc_attr($plugin::$prefix); ?>-admin-form" name="<?php echo esc_attr($plugin::$prefix); ?>-admin-form" method="post" action="<?php echo esc_attr(sanitize_url(wp_unslash($_SERVER['REQUEST_URI']))); ?>">
 			<?php
 			// Use nonce for verification.
 			wp_nonce_field($this->plugin_basename, $plugin->plugin_name . '::' . __FUNCTION__);
@@ -458,8 +457,7 @@ if ( ! class_exists('Halftheory_Event_Calendar', false) && class_exists('Halfthe
 				return;
 			}
 			$str = '<p><button class="' . esc_attr(static::$prefix) . '-toggle">Toggle ' . $this->plugin_title . ' options</button></p>';
-			$str = apply_filters('eventcalendar_toggle', $str);
-			echo $str;
+			echo wp_kses_post(apply_filters('eventcalendar_toggle', $str));
 			$this->postmeta($post);
 		}
 
@@ -476,12 +474,14 @@ if ( ! class_exists('Halftheory_Event_Calendar', false) && class_exists('Halfthe
 			// Use nonce for verification.
 			wp_nonce_field($this->plugin_basename, $this->plugin_name . '::' . __FUNCTION__);
 
+			$min = ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '' : '.min';
+
 			// datetimepicker.
-			$js_handle_datetimepicker = $this->enqueue_script(static::$prefix . '-datetimepicker', plugins_url('/assets/js/datetimepicker/jquery.datetimepicker.full' . ( ! ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '.min' : '' ) . '.js', __FILE__), array( 'jquery' ), '1.3.4');
-			$this->enqueue_style(static::$prefix . '-datetimepicker', plugins_url('/assets/js/datetimepicker/jquery.datetimepicker' . ( ! ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '.min' : '' ) . '.css', __FILE__), array(), '1.3.4');
+			$js_handle_datetimepicker = $this->enqueue_script(static::$prefix . '-datetimepicker', plugins_url('/assets/js/datetimepicker/jquery.datetimepicker.full' . $min . '.js', __FILE__), array( 'jquery' ), '1.3.4');
+			$this->enqueue_style(static::$prefix . '-datetimepicker', plugins_url('/assets/js/datetimepicker/jquery.datetimepicker' . $min . '.css', __FILE__), array(), '1.3.4');
 
 			// js + css.
-			wp_enqueue_script(static::$prefix . '-postmeta', plugins_url('/assets/js/postmeta' . ( ! ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '.min' : '' ) . '.js', __FILE__), array( $js_handle_datetimepicker ), $this->get_plugin_version(), true);
+			wp_enqueue_script(static::$prefix . '-postmeta', plugins_url('/assets/js/postmeta' . $min . '.js', __FILE__), array( $js_handle_datetimepicker ), $this->get_plugin_version(), true);
 			wp_localize_script(static::$prefix . '-postmeta',
 				'postmeta',
 				array(
@@ -535,53 +535,51 @@ if ( ! class_exists('Halftheory_Event_Calendar', false) && class_exists('Halfthe
 			}
 			// verify this came from the our screen and with proper authorization.
 			// because save_post can be triggered at other times.
-			if ( isset($_POST) ) {
-				if ( isset($_POST[ $this->plugin_name . '::postmeta' ]) ) {
-					if ( wp_verify_nonce($_POST[ $this->plugin_name . '::postmeta' ], $this->plugin_basename) ) {
-						// get values.
-						$postmeta_arr = $this->get_postmeta_array();
-						$postmeta = array();
-						foreach ( $postmeta_arr as $value ) {
-							$name = static::$prefix . '_' . $value;
-							if ( ! isset($_POST[ $name ]) ) {
-								continue;
-							}
-							if ( $this->empty_notzero($_POST[ $name ]) ) {
-								continue;
-							}
-							$postmeta[ $value ] = $_POST[ $name ];
+			if ( isset($_POST, $_POST[ $this->plugin_name . '::postmeta' ]) ) {
+				if ( wp_verify_nonce($_POST[ $this->plugin_name . '::postmeta' ], $this->plugin_basename) ) {
+					// get values.
+					$postmeta_arr = $this->get_postmeta_array();
+					$postmeta = array();
+					foreach ( $postmeta_arr as $value ) {
+						$name = static::$prefix . '_' . $value;
+						if ( ! isset($_POST[ $name ]) ) {
+							continue;
 						}
-						// save it.
-						$maybe_revision = wp_is_post_revision($post_id);
-						if ( $maybe_revision !== false ) {
-							$post_id = $maybe_revision;
+						if ( $this->empty_notzero($_POST[ $name ]) ) {
+							continue;
 						}
-						if ( ! empty($postmeta) ) {
-							$this->update_postmeta($post_id, $this->postmeta_key, $postmeta);
+						$postmeta[ $value ] = wp_unslash($_POST[ $name ]);
+					}
+					// save it.
+					$maybe_revision = wp_is_post_revision($post_id);
+					if ( $maybe_revision !== false ) {
+						$post_id = $maybe_revision;
+					}
+					if ( ! empty($postmeta) ) {
+						$this->update_postmeta($post_id, $this->postmeta_key, $postmeta);
 
-							if ( $this->post_has_event_data($post_id, array( 'date_start' ), $postmeta) ) {
-								$date_start_time = strtotime($postmeta['date_start']);
-								$this->update_postmeta($post_id, $this->postmeta_key_time, $date_start_time);
-								// update post_date in posts table?
-								$post_types_post_date = $this->get_options_context('db', 'post_types_post_date');
-								if ( in_array(get_post_type($post_id), $post_types_post_date, true) ) {
-									$date_start_mysql = gmdate('Y-m-d H:i:s', min($date_start_time, current_time('U')));
-									if ( $date_start_mysql !== $post->post_date ) {
-										$postarr = array(
-											'ID' => $post_id,
-											'post_date' => $date_start_mysql,
-											'post_date_gmt' => get_gmt_from_date($date_start_mysql),
-										);
-										wp_update_post(wp_slash($postarr));
-									}
+						if ( $this->post_has_event_data($post_id, array( 'date_start' ), $postmeta) ) {
+							$date_start_time = strtotime($postmeta['date_start']);
+							$this->update_postmeta($post_id, $this->postmeta_key_time, $date_start_time);
+							// update post_date in posts table?
+							$post_types_post_date = $this->get_options_context('db', 'post_types_post_date');
+							if ( in_array(get_post_type($post_id), $post_types_post_date, true) ) {
+								$date_start_mysql = gmdate('Y-m-d H:i:s', min($date_start_time, current_time('U')));
+								if ( $date_start_mysql !== $post->post_date ) {
+									$postarr = array(
+										'ID' => $post_id,
+										'post_date' => $date_start_mysql,
+										'post_date_gmt' => get_gmt_from_date($date_start_mysql),
+									);
+									wp_update_post(wp_slash($postarr));
 								}
-							} else {
-								$this->delete_postmeta($post_id, $this->postmeta_key_time);
 							}
 						} else {
-							$this->delete_postmeta($post_id, $this->postmeta_key);
 							$this->delete_postmeta($post_id, $this->postmeta_key_time);
 						}
+					} else {
+						$this->delete_postmeta($post_id, $this->postmeta_key);
+						$this->delete_postmeta($post_id, $this->postmeta_key_time);
 					}
 				}
 			}
@@ -600,7 +598,7 @@ if ( ! class_exists('Halftheory_Event_Calendar', false) && class_exists('Halfthe
 		public function manage_posts_custom_column( $column_name, $post_id = 0 ) {
 			if ( $column_name === 'date_start' ) {
 				if ( $postmeta = $this->post_has_event_data($post_id) ) {
-					echo gmdate('Y-m-d', strtotime($postmeta['date_start']));
+					echo esc_html( gmdate('Y-m-d', strtotime($postmeta['date_start'])) );
 				}
 			}
 		}
@@ -679,23 +677,25 @@ if ( ! class_exists('Halftheory_Event_Calendar', false) && class_exists('Halfthe
 				$atts = array_filter($atts);
 			}
 
+			$min = ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '' : '.min';
+
 			// fullcalendar.
 			// css.
-			$css_handle_fullcalendar = $this->enqueue_style(static::$prefix . '-fullcalendar', plugins_url('/assets/js/fullcalendar/fullcalendar' . ( ! ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '.min' : '' ) . '.css', __FILE__), array(), '3.8.0');
-			$css_handle_fullcalendar_print = $this->enqueue_style(static::$prefix . '-fullcalendar-print', plugins_url('/assets/js/fullcalendar/fullcalendar.print' . ( ! ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '.min' : '' ) . '.css', __FILE__), array( $css_handle_fullcalendar ), '3.8.0', 'print');
+			$css_handle_fullcalendar = $this->enqueue_style(static::$prefix . '-fullcalendar', plugins_url('/assets/js/fullcalendar/fullcalendar' . $min . '.css', __FILE__), array(), '3.8.0');
+			$css_handle_fullcalendar_print = $this->enqueue_style(static::$prefix . '-fullcalendar-print', plugins_url('/assets/js/fullcalendar/fullcalendar.print' . $min . '.css', __FILE__), array( $css_handle_fullcalendar ), '3.8.0', 'print');
 			// js.
 			$js_handle_moment = $this->enqueue_script(static::$prefix . '-moment', plugins_url('/assets/js/fullcalendar/lib/moment.min.js', __FILE__));
 			$js_handle_jquery = 'jquery';
 			if ( ! wp_script_is('jquery', 'registered') ) {
 				$js_handle_jquery = $this->enqueue_script('jquery', plugins_url('/assets/js/fullcalendar/lib/jquery.min.js', __FILE__), array(), '3.2.1');
 			}
-			$js_handle_fullcalendar = $this->enqueue_script(static::$prefix . '-fullcalendar', plugins_url('/assets/js/fullcalendar/fullcalendar' . ( ! ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '.min' : '' ) . '.js', __FILE__), array( $js_handle_jquery, $js_handle_moment ), '3.8.0');
+			$js_handle_fullcalendar = $this->enqueue_script(static::$prefix . '-fullcalendar', plugins_url('/assets/js/fullcalendar/fullcalendar' . $min . '.js', __FILE__), array( $js_handle_jquery, $js_handle_moment ), '3.8.0');
 			// qtip.
 			// css.
-			$css_handle_qtip = $this->enqueue_style(static::$prefix . '-qtip', plugins_url('/assets/js/qtip/jquery.qtip' . ( ! ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '.min' : '' ) . '.css', __FILE__), array(), '3.0.3', 'screen');
+			$css_handle_qtip = $this->enqueue_style(static::$prefix . '-qtip', plugins_url('/assets/js/qtip/jquery.qtip' . $min . '.css', __FILE__), array(), '3.0.3', 'screen');
 			// js.
 			$js_handle_imagesloaded = $this->enqueue_script(static::$prefix . '-imagesloaded', plugins_url('/assets/js/qtip/imagesloaded.pkgd.min.js', __FILE__), array( $js_handle_jquery ), '4.1.2');
-			$this->enqueue_script(static::$prefix . '-qtip', plugins_url('/assets/js/qtip/jquery.qtip' . ( ! ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '.min' : '' ) . '.js', __FILE__), array( $js_handle_imagesloaded ), '3.0.3');
+			$this->enqueue_script(static::$prefix . '-qtip', plugins_url('/assets/js/qtip/jquery.qtip' . $min . '.js', __FILE__), array( $js_handle_imagesloaded ), '3.0.3');
 
 			// $args - list of vars to send to fullcalendar https://fullcalendar.io/docs/
 			$args = array(
@@ -731,7 +731,7 @@ if ( ! class_exists('Halftheory_Event_Calendar', false) && class_exists('Halfthe
 			// css.
 			$css_handle_plugin = $this->enqueue_style(static::$prefix . '-fullcalendar-init', plugins_url('/assets/css/fullcalendar-init.css', __FILE__), array( $css_handle_fullcalendar, $css_handle_qtip ), $this->get_plugin_version());
 			// js
-			wp_enqueue_script(static::$prefix . '-fullcalendar-init', plugins_url('/assets/js/fullcalendar/fullcalendar-init' . ( ! ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '.min' : '' ) . '.js', __FILE__), array( $js_handle_fullcalendar ), $this->get_plugin_version(), true);
+			wp_enqueue_script(static::$prefix . '-fullcalendar-init', plugins_url('/assets/js/fullcalendar/fullcalendar-init' . $min . '.js', __FILE__), array( $js_handle_fullcalendar ), $this->get_plugin_version(), true);
 			wp_localize_script(static::$prefix . '-fullcalendar-init',
 				'fullcalendar',
 				array(
@@ -847,10 +847,10 @@ if ( ! class_exists('Halftheory_Event_Calendar', false) && class_exists('Halfthe
 
 		public function ajax_qtip() {
 			if ( ! isset($_REQUEST['post_id']) ) {
-				wp_die();
+				wp_die( -1 );
 			}
 			if ( empty($_REQUEST['post_id']) ) {
-				wp_die();
+				wp_die( -1 );
 			}
 			$post_id = absint($_REQUEST['post_id']);
 			$blog_id = absint($_REQUEST['blog_id']);
@@ -871,11 +871,8 @@ if ( ! class_exists('Halftheory_Event_Calendar', false) && class_exists('Halfthe
 			}
 			// excerpt.
 			$excerpt = ! empty($post->post_excerpt) ? $post->post_excerpt : $post->post_content;
-			if ( function_exists('get_the_excerpt_filtered') ) {
-				$excerpt = get_the_excerpt_filtered($excerpt);
-			}
+			$excerpt = apply_filters('get_the_excerpt', $excerpt, $post);
 			$excerpt = make_clickable($excerpt);
-			$maxchars = 250;
 			if ( function_exists('get_excerpt') ) {
 				$args = array(
 					'allowable_tags' => array( 'br', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'b', 'em', 'i', 'ul', 'li', 'ol', 'blockquote', 'a' ),
@@ -885,17 +882,9 @@ if ( ! class_exists('Halftheory_Event_Calendar', false) && class_exists('Halfthe
 					'strip_shortcodes' => true,
 					'add_dots' => true,
 				);
-				$excerpt = get_excerpt($excerpt, $maxchars, $args);
+				$excerpt = get_excerpt($excerpt, 250, $args);
 			} else {
-				$excerpt = $this->strip_all_shortcodes($excerpt);
-				if ( function_exists('excerpt_remove_blocks') ) {
-					$excerpt = excerpt_remove_blocks($excerpt);
-				}
-				$excerpt = wp_strip_all_tags($excerpt, false);
-				if ( strlen($excerpt) > $maxchars ) {
-					$excerpt = substr($excerpt, 0, $maxchars) . wp_trim_words(substr($excerpt, $maxchars), 1);
-				}
-				$excerpt = force_balance_tags( wpautop( nl2br($excerpt) ) );
+				$excerpt = wp_trim_excerpt($excerpt, $post);
 			}
 			$str .= $excerpt;
 
@@ -917,10 +906,10 @@ if ( ! class_exists('Halftheory_Event_Calendar', false) && class_exists('Halfthe
 				return;
 			}
 			if ( ! isset($_REQUEST['q']) ) {
-				wp_die();
+				wp_die( -1 );
 			}
 			if ( empty($_REQUEST['q']) ) {
-				wp_die();
+				wp_die( -1 );
 			}
 			if ( ! headers_sent() ) {
 				header('Content-Type: application/json');
@@ -1054,7 +1043,7 @@ if ( ! class_exists('Halftheory_Event_Calendar', false) && class_exists('Halfthe
 				}
 
 				// map.
-				if ( isset($postmeta['geo_latitude']) && isset($postmeta['geo_longitude']) && ! empty($postmeta['geo_latitude']) && ! empty($postmeta['geo_longitude']) && ! empty($this->get_options_context('db', 'maps_provider')) ) {
+				if ( isset($postmeta['geo_latitude'], $postmeta['geo_longitude']) && ! empty($postmeta['geo_latitude']) && ! empty($postmeta['geo_longitude']) && ! empty($this->get_options_context('db', 'maps_provider')) ) {
 					$has_map = true;
 
 					// js.
@@ -1142,7 +1131,7 @@ if ( ! class_exists('Halftheory_Event_Calendar', false) && class_exists('Halfthe
 			}
 			// change where.
 			global $wpdb;
-			$where = preg_replace("/^( AND \()(.+)$/s", "$1 ($2 ) OR {$wpdb->posts}.ID IN (" . implode(',', $posts_tmp) . ')', $where, 1);
+			$where = preg_replace('/^( AND \()(.+)$/s', "$1 ($2 ) OR {$wpdb->posts}.ID IN (" . implode(',', $posts_tmp) . ')', $where, 1);
 			return $where;
 		}
 
@@ -1257,7 +1246,7 @@ if ( ! class_exists('Halftheory_Event_Calendar', false) && class_exists('Halfthe
 					return true;
 				}
 			}
-			if ( isset($postmeta['geo_latitude']) && isset($postmeta['geo_longitude']) ) {
+			if ( isset($postmeta['geo_latitude'], $postmeta['geo_longitude']) ) {
 				if ( ! empty($postmeta['geo_latitude']) && ! empty($postmeta['geo_longitude']) ) {
 					return true;
 				}
@@ -1411,7 +1400,9 @@ if ( ! class_exists('Halftheory_Event_Calendar', false) && class_exists('Halfthe
 				$maps_provider = $this->get_options_context('db', 'maps_provider');
 
 				// plugin js.
-				$this->enqueue_script(static::$prefix . '-event', plugins_url('/assets/js/event' . ( ! ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '.min' : '' ) . '.js', __FILE__), array( 'jquery' ), $this->get_plugin_version(), true);
+				$min = ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '' : '.min';
+
+				$this->enqueue_script(static::$prefix . '-event', plugins_url('/assets/js/event' . $min . '.js', __FILE__), array( 'jquery' ), $this->get_plugin_version(), true);
 				$data = array(
 					'prefix' => static::$prefix,
 					'maps_provider' => $maps_provider,
@@ -1453,7 +1444,7 @@ if ( ! class_exists('Halftheory_Event_Calendar', false) && class_exists('Halfthe
 			// use user_agent when available.
 			$user_agent = $this->plugin_title;
 			if ( isset($_SERVER['HTTP_USER_AGENT']) && ! empty($_SERVER['HTTP_USER_AGENT']) ) {
-				$user_agent = $_SERVER['HTTP_USER_AGENT'];
+				$user_agent = wp_unslash($_SERVER['HTTP_USER_AGENT']);
 			}
 			$options = array( 'http' => array( 'user_agent' => $user_agent ) );
 			$context = stream_context_create($options);
@@ -1491,27 +1482,6 @@ if ( ! class_exists('Halftheory_Event_Calendar', false) && class_exists('Halfthe
 		}
 
 		/* functions-common */
-
-		private function strip_all_shortcodes( $str = '' ) {
-			if ( function_exists(__FUNCTION__) ) {
-				$func = __FUNCTION__;
-				return $func($str);
-			}
-			$go = true;
-			// inline scripts.
-			if ( strpos($str, '<script') !== false ) {
-				$go = false;
-			}
-			// [] inside html tag.
-			if ( $go && preg_match("/<[a-z]+ [^>\[\]]+\[[^>]+>/is", $str) ) {
-				$go = false;
-			}
-			if ( $go ) {
-				// more than 4 letters.
-				$str = preg_replace("/\[[^\]]{5,}\]/is", '', $str);
-			}
-			return $str;
-		}
 
 		private function trim_quotes( $str = '' ) {
 			if ( function_exists(__FUNCTION__) ) {

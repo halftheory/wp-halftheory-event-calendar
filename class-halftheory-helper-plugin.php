@@ -15,6 +15,7 @@ halftheory_admin_menu_parent(string $name)
 defined('ABSPATH') || exit;
 
 if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
+	#[AllowDynamicProperties]
 	class Halftheory_Helper_Plugin {
 
 		protected static $instance;
@@ -33,7 +34,7 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 			}
 		}
 
-		final private function __clone() {
+		private function __clone() {
 		}
 
 		final public static function get_instance( $load_actions = false, $plugin_basename = null, $prefix = null ) {
@@ -45,7 +46,7 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 
 		protected function setup_globals( $plugin_basename = null, $prefix = null ) {
 			$this->plugin_name = get_called_class();
-			$this->plugin_title = preg_replace("/^Halftheory[^A-Za-z0-9]*/", '', $this->plugin_name);
+			$this->plugin_title = preg_replace('/^Halftheory[^A-Za-z0-9]*/', '', $this->plugin_name);
 			$this->plugin_title = ucwords(str_replace('_', ' ', $this->plugin_title));
 			if ( ! empty($plugin_basename) ) {
 				$this->plugin_basename = $plugin_basename;
@@ -55,9 +56,9 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 			if ( ! empty($prefix) ) {
 				static::$prefix = $prefix;
 			} else {
-				static::$prefix = preg_replace("/^Halftheory[^A-Za-z0-9]*/", '', $this->plugin_name);
+				static::$prefix = preg_replace('/^Halftheory[^A-Za-z0-9]*/', '', $this->plugin_name);
 			}
-			static::$prefix = preg_replace("/[^a-z0-9]/", '', sanitize_key(static::$prefix));
+			static::$prefix = preg_replace('/[^a-z0-9]/', '', sanitize_key(static::$prefix));
 			$this->options = array();
 			$this->postmeta = array();
 			if ( isset($this->plugin_is_network) ) {
@@ -77,7 +78,7 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 					),
 				);
 				*/
-				$this->menu_page_tab_active = isset($_GET['tab']) ? $_GET['tab'] : '';
+				$this->menu_page_tab_active = isset($_GET['tab']) ? sanitize_text_field(wp_unslash($_GET['tab'])) : '';
 			}
 		}
 
@@ -90,7 +91,7 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 			unset($plugin_file);
 
 			// admin options.
-			if ( ! $this->is_front_end() ) {
+			if ( ! $this->is_public() ) {
 				if ( $this->is_plugin_network() ) {
 					add_action('network_admin_menu', array( $this, 'admin_menu' ));
 					if ( is_main_site() ) {
@@ -137,7 +138,7 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 					if ( $value['is_dismissible'] ) {
 						$classes[] = 'is-dismissible';
 					}
-					echo '<div class="' . esc_attr(implode(' ', $classes)) . '"><p>' . $value['message'] . '</p></div>' . "\n";
+					echo wp_kses_post( sprintf( '<div class="' . esc_attr(implode(' ', $classes)) . '"><p>%s</p></div>', wpautop($value['message']) ) ) . "\n";
 				}
 			}
 		}
@@ -222,7 +223,7 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 
 			<?php $plugin->print_menu_page_tabs(); ?>
 
-			<form id="<?php echo esc_attr($plugin::$prefix); ?>-admin-form" name="<?php echo esc_attr($plugin::$prefix); ?>-admin-form" method="post" action="<?php echo esc_attr($_SERVER['REQUEST_URI']); ?>">
+			<form id="<?php echo esc_attr($plugin::$prefix); ?>-admin-form" name="<?php echo esc_attr($plugin::$prefix); ?>-admin-form" method="post" action="<?php echo esc_attr(sanitize_url(wp_unslash($_SERVER['REQUEST_URI']))); ?>">
 			<?php
 			// Use nonce for verification.
 			wp_nonce_field($plugin->plugin_basename, $plugin->plugin_name . '::' . __FUNCTION__);
@@ -242,7 +243,7 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 			global $title;
 			?>
 			<div class="wrap">
-			<h2><?php echo $title; ?></h2>
+			<h2><?php echo esc_html($title); ?></h2>
 
 			<?php
 			if ( $plugin->save_menu_page(__FUNCTION__) ) {
@@ -252,7 +253,7 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 
 			<?php $plugin->print_menu_page_tabs(); ?>
 
-			<form id="<?php echo esc_attr($plugin::$prefix); ?>-admin-form" name="<?php echo esc_attr($plugin::$prefix); ?>-admin-form" method="post" action="<?php echo esc_attr($_SERVER['REQUEST_URI']); ?>">
+			<form id="<?php echo esc_attr($plugin::$prefix); ?>-admin-form" name="<?php echo esc_attr($plugin::$prefix); ?>-admin-form" method="post" action="<?php echo esc_attr(sanitize_url(wp_unslash($_SERVER['REQUEST_URI']))); ?>">
 			<?php
 			// Use nonce for verification.
 			wp_nonce_field($plugin->plugin_basename, $plugin->plugin_name . '::' . __FUNCTION__);
@@ -274,15 +275,13 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 			if ( ! isset($this->admin_notices) ) {
 				$this->admin_notices = array();
 			}
-			$this->admin_notices[] = array('class' => $class, 'message' => $message, 'is_dismissible' => $is_dismissible);
+			$this->admin_notices[] = array( 'class' => $class, 'message' => $message, 'is_dismissible' => $is_dismissible );
 		}
 
 		public function admin_notices_set() {
-			if ( isset($this->admin_notices) ) {
-				if ( ! empty($this->admin_notices) ) {
-					$this->set_transient(static::$prefix . '_admin_notices', $this->admin_notices, '1 hour');
-					return;
-				}
+			if ( isset($this->admin_notices) && ! empty($this->admin_notices) ) {
+				$this->set_transient(static::$prefix . '_admin_notices', $this->admin_notices, '1 hour');
+				return;
 			}
 			$this->delete_transient(static::$prefix . '_admin_notices');
 		}
@@ -338,7 +337,7 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 		}
 
 		public function is_menu_page( $str = null ) {
-			if ( ! $this->is_front_end() ) {
+			if ( ! $this->is_public() ) {
 				if ( empty($str) ) {
 					$str = static::$prefix;
 				}
@@ -348,7 +347,7 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 						return true;
 					}
 				} elseif ( isset($_SERVER['QUERY_STRING']) ) {
-					if ( strpos($_SERVER['QUERY_STRING'], $str) !== false ) {
+					if ( strpos(wp_unslash($_SERVER['QUERY_STRING']), $str) !== false ) {
 						return true;
 					}
 				}
@@ -398,24 +397,22 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 
 		public function load_menu_page_tab() {
 			if ( ! empty($this->menu_page_tabs) && ! empty($this->menu_page_tab_active) ) {
-				if ( isset($this->menu_page_tabs[ $this->menu_page_tab_active ]) ) {
-					if ( isset($this->menu_page_tabs[ $this->menu_page_tab_active ]['callback']) ) {
-						if ( is_string($this->menu_page_tabs[ $this->menu_page_tab_active ]['callback']) ) {
-							if ( method_exists($this, $this->menu_page_tabs[ $this->menu_page_tab_active ]['callback']) ) {
-								$callback = $this->menu_page_tabs[ $this->menu_page_tab_active ]['callback'];
-								$this->$callback($this);
-								return true;
-							} elseif ( function_exists($this->menu_page_tabs[ $this->menu_page_tab_active ]['callback']) ) {
-								$callback = $this->menu_page_tabs[ $this->menu_page_tab_active ]['callback'];
-								$callback($this);
-								return true;
-							}
-						} elseif ( is_array($this->menu_page_tabs[ $this->menu_page_tab_active ]['callback']) ) {
-							if ( is_callable($this->menu_page_tabs[ $this->menu_page_tab_active ]['callback']) ) {
-								$callback = $this->menu_page_tabs[ $this->menu_page_tab_active ]['callback'];
-								$callback($this);
-								return true;
-							}
+				if ( isset($this->menu_page_tabs[ $this->menu_page_tab_active ], $this->menu_page_tabs[ $this->menu_page_tab_active ]['callback']) ) {
+					if ( is_string($this->menu_page_tabs[ $this->menu_page_tab_active ]['callback']) ) {
+						if ( method_exists($this, $this->menu_page_tabs[ $this->menu_page_tab_active ]['callback']) ) {
+							$callback = $this->menu_page_tabs[ $this->menu_page_tab_active ]['callback'];
+							$this->$callback($this);
+							return true;
+						} elseif ( function_exists($this->menu_page_tabs[ $this->menu_page_tab_active ]['callback']) ) {
+							$callback = $this->menu_page_tabs[ $this->menu_page_tab_active ]['callback'];
+							$callback($this);
+							return true;
+						}
+					} elseif ( is_array($this->menu_page_tabs[ $this->menu_page_tab_active ]['callback']) ) {
+						if ( is_callable($this->menu_page_tabs[ $this->menu_page_tab_active ]['callback']) ) {
+							$callback = $this->menu_page_tabs[ $this->menu_page_tab_active ]['callback'];
+							$callback($this);
+							return true;
 						}
 					}
 				}
@@ -434,9 +431,9 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 							continue;
 						}
 						if ( empty($key) ) {
-							echo '<a class="nav-tab' . esc_attr($this->menu_page_tab_active === $key ? ' nav-tab-active' : '') . '" href="' . esc_url( admin_url($pagenow . '?page=' . static::$prefix) ) . '">' . $value['name'] . '</a> ';
+							echo wp_kses_post('<a class="nav-tab' . esc_attr($this->menu_page_tab_active === $key ? ' nav-tab-active' : '') . '" href="' . esc_url( admin_url($pagenow . '?page=' . static::$prefix) ) . '">' . $value['name'] . '</a> ');
 						} else {
-							echo '<a class="nav-tab' . esc_attr($this->menu_page_tab_active === $key ? ' nav-tab-active' : '') . '" href="' . esc_url( admin_url($pagenow . '?page=' . static::$prefix . '&tab=' . $key) ) . '">' . $value['name'] . '</a> ';
+							echo wp_kses_post('<a class="nav-tab' . esc_attr($this->menu_page_tab_active === $key ? ' nav-tab-active' : '') . '" href="' . esc_url( admin_url($pagenow . '?page=' . static::$prefix . '&tab=' . $key) ) . '">' . $value['name'] . '</a> ');
 						}
 					}
 					?>
@@ -881,15 +878,15 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 			global $wpdb;
 			if ( $this->is_plugin_network() ) {
 				$name_network = $this->get_option_name($name, true);
-				$wpdb->query("DELETE FROM $wpdb->sitemeta WHERE meta_key LIKE '" . $name_network . "%'");
+				$wpdb->query( $wpdb->prepare("DELETE FROM $wpdb->sitemeta WHERE meta_key LIKE %s", $wpdb->esc_like($name_network) . '%') );
 				$sites = get_sites();
 				foreach ( $sites as $key => $value ) {
 					switch_to_blog($value->blog_id);
-					$wpdb->query("DELETE FROM $wpdb->options WHERE option_name LIKE '" . $name_single . "%'");
+					$wpdb->query( $wpdb->prepare("DELETE FROM $wpdb->options WHERE option_name LIKE %s", $wpdb->esc_like($name_single) . '%') );
 					restore_current_blog();
 				}
 			} else {
-				$wpdb->query("DELETE FROM $wpdb->options WHERE option_name LIKE '" . $name_single . "%'");
+				$wpdb->query( $wpdb->prepare("DELETE FROM $wpdb->options WHERE option_name LIKE %s", $wpdb->esc_like($name_single) . '%') );
 			}
 		}
 
@@ -958,15 +955,15 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 			global $wpdb;
 			if ( $this->is_plugin_network() ) {
 				$transient_network = $this->get_transient_name($transient, true);
-				$wpdb->query("DELETE FROM $wpdb->sitemeta WHERE meta_key LIKE '_site_transient_" . $transient_network . "%' OR meta_key LIKE '_site_transient_timeout_" . $transient_network . "%'");
+				$wpdb->query( $wpdb->prepare("DELETE FROM $wpdb->sitemeta WHERE meta_key LIKE %s OR meta_key LIKE %s", $wpdb->esc_like('_site_transient_' . $transient_network) . '%', $wpdb->esc_like('_site_transient_timeout_' . $transient_network) . '%') );
 				$sites = get_sites();
 				foreach ( $sites as $key => $value ) {
 					switch_to_blog($value->blog_id);
-					$wpdb->query("DELETE FROM $wpdb->options WHERE option_name LIKE '_transient_" . $transient_single . "%' OR option_name LIKE '_transient_timeout_" . $transient_single . "%'");
+					$wpdb->query( $wpdb->prepare("DELETE FROM $wpdb->options WHERE option_name LIKE %s OR option_name LIKE %s", $wpdb->esc_like('_transient_' . $transient_single) . '%', $wpdb->esc_like('_transient_timeout_' . $transient_single) . '%') );
 					restore_current_blog();
 				}
 			} else {
-				$wpdb->query("DELETE FROM $wpdb->options WHERE option_name LIKE '_transient_" . $transient_single . "%' OR option_name LIKE '_transient_timeout_" . $transient_single . "%'");
+				$wpdb->query( $wpdb->prepare("DELETE FROM $wpdb->options WHERE option_name LIKE %s OR option_name LIKE %s", $wpdb->esc_like('_transient_' . $transient_single) . '%', $wpdb->esc_like('_transient_timeout_' . $transient_single) . '%') );
 			}
 		}
 
@@ -985,10 +982,8 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 			if ( ! isset($this->postmeta[ $post_id ]) ) {
 				$this->postmeta[ $post_id ] = array();
 				$db_fetch = true;
-			} else {
-				if ( ! isset($this->postmeta[ $post_id ][ $name ]) ) {
-					$db_fetch = true;
-				}
+			} elseif ( ! isset($this->postmeta[ $post_id ][ $name ]) ) {
+				$db_fetch = true;
 			}
 			if ( $db_fetch ) {
 				$this->postmeta[ $post_id ][ $name ] = get_post_meta($post_id, $name, true);
@@ -1031,11 +1026,12 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 				$sites = get_sites();
 				foreach ( $sites as $key => $value ) {
 					switch_to_blog($value->blog_id);
-					$wpdb->query("DELETE FROM $wpdb->postmeta WHERE meta_key LIKE '" . $name . "%'");
+					$wpdb->query( $wpdb->prepare("DELETE FROM $wpdb->postmeta WHERE meta_key LIKE %s", $wpdb->esc_like($name) . '%') );
+
 					restore_current_blog();
 				}
 			} else {
-				$wpdb->query("DELETE FROM $wpdb->postmeta WHERE meta_key LIKE '" . $name . "%'");
+				$wpdb->query( $wpdb->prepare("DELETE FROM $wpdb->postmeta WHERE meta_key LIKE %s", $wpdb->esc_like($name) . '%') );
 			}
 		}
 
@@ -1050,7 +1046,7 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 		public function delete_usermeta_uninstall( $name = '' ) {
 			$name = $this->get_usermeta_name($name);
 			global $wpdb;
-			$wpdb->query("DELETE FROM $wpdb->usermeta WHERE meta_key LIKE '" . $name . "%'");
+			$wpdb->query( $wpdb->prepare("DELETE FROM $wpdb->usermeta WHERE meta_key LIKE %s", $wpdb->esc_like($name) . '%') );
 		}
 
 		/* functions-common */
@@ -1077,12 +1073,14 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 				return $func($keep_query);
 			}
 			$res  = is_ssl() ? 'https://' : 'http://';
-			$res .= isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : '';
-			$res .= isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : $_SERVER['PHP_SELF'];
-			if ( wp_doing_ajax() && isset($_SERVER['HTTP_REFERER']) ) {
-				if ( ! empty($_SERVER["HTTP_REFERER"]) ) {
-					$res = $_SERVER["HTTP_REFERER"];
-				}
+			$res .= isset($_SERVER['HTTP_HOST']) ? wp_unslash($_SERVER['HTTP_HOST']) : '';
+			if ( isset($_SERVER['REQUEST_URI']) ) {
+				$res .= wp_unslash($_SERVER['REQUEST_URI']);
+			} elseif ( isset($_SERVER['PHP_SELF']) ) {
+				$res .= wp_unslash($_SERVER['PHP_SELF']);
+			}
+			if ( wp_doing_ajax() && isset($_SERVER['HTTP_REFERER']) && ! empty($_SERVER['HTTP_REFERER']) ) {
+				$res = wp_unslash($_SERVER['HTTP_REFERER']);
 			}
 			if ( ! $keep_query ) {
 				$remove = array();
@@ -1109,7 +1107,7 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 			return in_array( (int) $needle, $arr, $strict);
 		}
 
-		public function is_front_end() {
+		public function is_public() {
 			if ( function_exists(__FUNCTION__) ) {
 				$func = __FUNCTION__;
 				return $func();
@@ -1248,7 +1246,7 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 					uasort($links[ $k ], $sort_longest_first);
 					// existing links.
 					if ( ! empty($args['count_existing_links']) && strpos($str, esc_url($v)) !== false ) {
-						if ( preg_match_all("/<a [^>]*?href=\"" . preg_quote(esc_url($v), '/') . "\"/is", $str, $matches) ) {
+						if ( preg_match_all('/<a [^>]*?href="' . preg_quote(esc_url($v), '/') . '"/is', $str, $matches) ) {
 							$links[ $k ][ $count_key ] = count($matches);
 						}
 					}
@@ -1287,7 +1285,7 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 						// after a link is fine.
 						$link_open = false;
 					} elseif ( ! empty($args['in_html_tags']) ) {
-						if ( ! preg_match("/^<(" . implode('|', $args['in_html_tags']) . ")( |\/|>)/is", $textarr[ $i - 1 ]) ) {
+						if ( ! preg_match('/^<(' . implode('|', $args['in_html_tags']) . ')( |\/|>)/is', $textarr[ $i - 1 ]) ) {
 							continue;
 						}
 					}
@@ -1349,6 +1347,9 @@ if ( ! class_exists('Halftheory_Helper_Plugin', false) ) :
 			}
 			$res = true;
 			if ( empty($str) ) {
+				$res = false;
+			}
+			if ( ! headers_sent() && ! wp_doing_ajax() && ! in_the_loop() ) {
 				$res = false;
 			}
 			if ( did_action('get_header') === 0 && ! wp_doing_ajax() && ! is_feed() ) {
