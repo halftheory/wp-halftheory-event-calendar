@@ -1241,10 +1241,8 @@ if ( ! class_exists('Halftheory_Event_Calendar', false) && class_exists('Halfthe
 		}
 
 		private function post_has_event_location( $postmeta = array() ) {
-			if ( isset($postmeta['geo_address']) ) {
-				if ( ! empty($postmeta['geo_address']) ) {
-					return true;
-				}
+			if ( isset($postmeta['geo_address']) && ! empty($postmeta['geo_address']) ) {
+				return true;
 			}
 			if ( isset($postmeta['geo_latitude'], $postmeta['geo_longitude']) ) {
 				if ( ! empty($postmeta['geo_latitude']) && ! empty($postmeta['geo_longitude']) ) {
